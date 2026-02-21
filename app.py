@@ -40,7 +40,6 @@ FD_LIGA_IDS = {
     "NED Eredivisie": "DED",
 }
 
-# Understat dekker disse ligaene (med xG)
 UNDERSTAT_LIGAER = {
     "ENG Premier League": "EPL",
     "ENG Championship": "Championship",
@@ -49,7 +48,6 @@ UNDERSTAT_LIGAER = {
     "GER Bundesliga": "Bundesliga",
     "FRA Ligue 1": "Ligue_1",
     "NED Eredivisie": "Eredivisie",
-    "RUS Premier League": "RFPL",
 }
 
 ODDS_SPORT_KEYS = {
@@ -67,18 +65,110 @@ ODDS_SPORT_KEYS = {
     "NED Eredivisie": "soccer_netherlands_eredivisie",
 }
 
-FOTMOB_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    "Accept": "application/json",
-    "Referer": "https://www.fotmob.com/",
+# ─────────────────────────────────────────────
+# CSS
+# ─────────────────────────────────────────────
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+
+:root {
+    --bg: #070c12;
+    --surface: #0d1520;
+    --surface2: #111c2a;
+    --border: #192537;
+    --border2: #243045;
+    --text: #dde6f0;
+    --muted: #4a6080;
+    --green: #10b981;
+    --green-bg: #011a12;
+    --red: #f43f5e;
+    --red-bg: #1f0610;
+    --blue: #3b82f6;
+    --yellow: #f59e0b;
+    --purple: #a78bfa;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --body: 'DM Sans', sans-serif;
 }
 
+html, body, [class*="css"] { font-family: var(--body) !important; background: var(--bg) !important; color: var(--text) !important; }
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 2rem 2.5rem !important; max-width: 1400px !important; }
+
+.app-title { font-family: var(--display); font-size: 30px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+.app-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin: 4px 0 20px; }
+
+.status-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.pill { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.03em; }
+.pill-ok  { background:#011a12; color:#10b981; border:1px solid #065f46; }
+.pill-warn{ background:#1c1200; color:#f59e0b; border:1px solid #78350f; }
+.pill-err { background:#1f0610; color:#f43f5e; border:1px solid #881337; }
+.pill-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
+
+.dag-hdr { font-family:var(--display); font-size:12px; font-weight:800; color:var(--muted); letter-spacing:0.14em; text-transform:uppercase; margin:32px 0 10px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+
+.kamp { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border); border-radius:10px; margin-bottom:10px; }
+.kamp.verdi { border-color:#065f46; border-left-color:var(--green); background:linear-gradient(135deg,#011a1210,var(--surface)); }
+
+.kamp-top { display:flex; justify-content:space-between; align-items:center; padding:13px 18px; border-bottom:1px solid var(--border); }
+.k-navn { font-family:var(--display); font-size:15px; font-weight:800; color:var(--text); letter-spacing:-0.1px; }
+.k-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+.badges { display:flex; gap:5px; }
+.bdg { font-size:10px; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:0.06em; text-transform:uppercase; }
+.bdg-v { background:#011a12; color:var(--green); border:1px solid #065f46; }
+.bdg-x { background:#1e1b4b; color:#a78bfa; border:1px solid #3730a3; }
+.bdg-o { background:#1c1917; color:#a8a29e; border:1px solid #44403c; }
+
+.sek-lbl { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:10px; }
+
+.folk-item { margin-bottom:8px; }
+.folk-row { display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; }
+.folk-lbl { color:var(--muted); }
+.folk-pct { font-family:var(--mono); font-size:13px; font-weight:500; color:var(--text); }
+.bar { height:4px; background:var(--border2); border-radius:2px; }
+.bar-h { height:4px; border-radius:2px; background:var(--blue); }
+.bar-u { height:4px; border-radius:2px; background:var(--yellow); }
+.bar-b { height:4px; border-radius:2px; background:var(--purple); }
+
+.utfall { display:grid; grid-template-columns:72px 46px 1fr auto; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
+.utfall:last-child { border-bottom:none; }
+.u-n { font-size:12px; color:var(--muted); }
+.u-p { font-family:var(--mono); font-size:14px; font-weight:500; color:var(--text); }
+.u-t { font-family:var(--mono); font-size:11px; color:var(--muted); background:var(--border); padding:2px 6px; border-radius:3px; justify-self:start; }
+.u-a { font-family:var(--mono); font-size:13px; font-weight:500; text-align:right; }
+.pos { color:var(--green); } .neg { color:var(--red); } .nøy { color:var(--muted); }
+
+.stat-sek { padding:14px 18px; background:var(--bg); border-top:1px solid var(--border); }
+.lag-lbl { font-size:11px; font-weight:700; color:var(--muted); letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px; }
+.chips { display:flex; gap:7px; flex-wrap:wrap; }
+.chip { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:7px 12px; text-align:center; min-width:88px; }
+.c-lbl { font-size:10px; color:var(--muted); margin-bottom:3px; }
+.c-val { font-family:var(--mono); font-size:15px; font-weight:500; color:var(--text); }
+.c-sub { font-size:10px; color:var(--muted); margin-top:2px; }
+.c-grønn { color:var(--green) !important; }
+.c-rød   { color:var(--red)   !important; }
+
+.banner { margin:10px 18px 14px; padding:10px 14px; border-radius:6px; font-size:13px; font-weight:600; }
+.ban-v { background:var(--green-bg); border:1px solid #065f46; color:var(--green); }
+.ban-r { background:var(--red-bg); border:1px solid #881337; color:var(--red); }
+
+.ingen { font-size:12px; color:var(--muted); font-style:italic; padding:10px 0; }
+
+.footer { display:flex; gap:32px; padding:20px 0; border-top:1px solid var(--border); margin-top:24px; }
+.f-stat { text-align:center; }
+.f-val { font-family:var(--mono); font-size:22px; font-weight:500; color:var(--text); }
+.f-lbl { font-size:11px; color:var(--muted); margin-top:3px; }
+</style>
+""", unsafe_allow_html=True)
+
 # ─────────────────────────────────────────────
-# NORSK TIPPING
+# DATAHENTING
 # ─────────────────────────────────────────────
 
 @st.cache_data(ttl=180)
-def hent_nt_data():
+def hent_nt():
     try:
         r = requests.get(NT_API, timeout=10)
         r.raise_for_status()
@@ -86,499 +176,262 @@ def hent_nt_data():
     except Exception as e:
         return None, str(e)
 
-def prosesser_nt(json_data):
+def prosesser_nt(data):
     kamper = []
-    for dag in json_data.get("gameDays", []):
-        dag_navn = {"MIDWEEK": "Midtuke", "SATURDAY": "Lørdag", "SUNDAY": "Søndag"}.get(
-            dag.get("dayType", ""), dag.get("dayType", ""))
+    for dag in data.get("gameDays", []):
+        dag_navn = {"MIDWEEK": "Midtuke", "SATURDAY": "Lørdag", "SUNDAY": "Søndag"}.get(dag.get("dayType", ""), dag.get("dayType", ""))
         game = dag.get("game", {})
         matches = game.get("matches", [])
         folk_ft = game.get("tips", {}).get("fullTime", {}).get("peoples", [])
-
         for i, m in enumerate(matches):
             folk = folk_ft[i] if i < len(folk_ft) else {}
             liga = m.get("arrangement", {}).get("name", "")
-            dato_raw = m.get("date", "")
-            dato = dato_raw[:10] if dato_raw else ""
-
+            dato = m.get("date", "")[:10]
             kamper.append({
-                "Dag": dag_navn,
-                "Kamp": m.get("name", ""),
+                "Dag": dag_navn, "Kamp": m.get("name", ""),
                 "Hjemmelag": m.get("teams", {}).get("home", {}).get("webName", ""),
                 "Bortelag": m.get("teams", {}).get("away", {}).get("webName", ""),
-                "Liga": liga,
-                "Dato": dato,
+                "Liga": liga, "Dato": dato,
                 "Folk H%": folk.get("home", 0),
                 "Folk U%": folk.get("draw", 0),
                 "Folk B%": folk.get("away", 0),
             })
     return pd.DataFrame(kamper)
 
-# ─────────────────────────────────────────────
-# FOOTBALL-DATA.ORG – Hjemme/borte tabell
-# ─────────────────────────────────────────────
-
 @st.cache_data(ttl=3600)
-def hent_fd_statistikk(liga_kode):
+def hent_fd(kode):
     if not FOOTBALL_DATA_KEY:
-        return {}
+        return {}, "Ingen FOOTBALL_DATA_KEY i Secrets"
     try:
-        headers = {"X-Auth-Token": FOOTBALL_DATA_KEY}
-        url = f"https://api.football-data.org/v4/competitions/{liga_kode}/standings"
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(
+            f"https://api.football-data.org/v4/competitions/{kode}/standings",
+            headers={"X-Auth-Token": FOOTBALL_DATA_KEY}, timeout=15
+        )
+        if r.status_code == 403: return {}, "403 – Sjekk at FOOTBALL_DATA_KEY er korrekt i Secrets"
+        if r.status_code == 404: return {}, f"404 – Liga '{kode}' ikke funnet"
         r.raise_for_status()
         data = r.json()
-
-        lag_stats = {}
+        lag = {}
         for tabell in data.get("standings", []):
             ttype = tabell.get("type", "")
-            if ttype not in ["HOME", "AWAY", "TOTAL"]:
-                continue
+            if ttype not in ["HOME", "AWAY", "TOTAL"]: continue
             for row in tabell.get("table", []):
-                team = row.get("team", {})
-                navn = team.get("name", "") or team.get("shortName", "")
-                if not navn:
-                    continue
-                if navn not in lag_stats:
-                    lag_stats[navn] = {}
-
-                spilt = row.get("playedGames", 0)
-                scoret = row.get("goalsFor", 0)
-                innsl = row.get("goalsAgainst", 0)
-                seier = row.get("won", 0)
-                uav = row.get("draw", 0)
-                tap = row.get("lost", 0)
-
+                navn = row.get("team", {}).get("name", "")
+                if not navn: continue
+                if navn not in lag: lag[navn] = {}
+                sp = row.get("playedGames", 0)
+                gf = row.get("goalsFor", 0)
+                ga = row.get("goalsAgainst", 0)
                 if ttype == "HOME":
-                    lag_stats[navn].update({
-                        "hjemme_spilt": spilt, "hjemme_scoret": scoret,
-                        "hjemme_innsluppet": innsl, "hjemme_seier": seier,
-                        "hjemme_uav": uav, "hjemme_tap": tap,
-                    })
+                    lag[navn].update({"hs": sp, "hgf": gf, "hga": ga})
                 elif ttype == "AWAY":
-                    lag_stats[navn].update({
-                        "borte_spilt": spilt, "borte_scoret": scoret,
-                        "borte_innsluppet": innsl, "borte_seier": seier,
-                        "borte_uav": uav, "borte_tap": tap,
-                    })
-                elif ttype == "TOTAL":
-                    lag_stats[navn].update({
-                        "totalt_spilt": spilt, "totalt_scoret": scoret,
-                        "totalt_innsluppet": innsl,
-                    })
-        return lag_stats
-    except Exception:
-        return {}
+                    lag[navn].update({"as": sp, "agf": gf, "aga": ga})
+        return lag, None
+    except Exception as e:
+        return {}, str(e)
 
-# ─────────────────────────────────────────────
-# UNDERSTAT – xG per lag
-# ─────────────────────────────────────────────
+def beregn_styrke(lag):
+    if not lag: return {}
+    vals = list(lag.values())
+    hsnitt = np.mean([v["hgf"]/max(v["hs"],1) for v in vals if v.get("hs",0)>0]) or 1.5
+    bsnitt = np.mean([v["agf"]/max(v["as"],1) for v in vals if v.get("as",0)>0]) or 1.1
+    res = {}
+    for n, v in lag.items():
+        hs = max(v.get("hs",0),1); as_ = max(v.get("as",0),1)
+        hsc = v.get("hgf",0)/hs; hin = v.get("hga",0)/hs
+        bsc = v.get("agf",0)/as_; bin_ = v.get("aga",0)/as_
+        res[n] = {
+            "ah": round(hsc/max(hsnitt,.1),3), "fh": round(hsnitt/max(hin,.1),3),
+            "ab": round(bsc/max(bsnitt,.1),3), "fb": round(bsnitt/max(bin_,.1),3),
+            "hsc":round(hsc,2), "hin":round(hin,2), "bsc":round(bsc,2), "bin":round(bin_,2),
+            "hs":int(hs), "bs":int(as_), "lh":round(hsnitt,2), "lb":round(bsnitt,2),
+        }
+    return res
 
 @st.cache_data(ttl=3600)
-def hent_understat_xg(liga_navn):
-    """Henter xG-statistikk fra Understat for en hel liga."""
+def hent_xg(liga_navn):
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://understat.com/",
-        }
-        url = f"https://understat.com/league/{liga_navn}"
-        r = requests.get(url, headers=headers, timeout=15)
-        r.raise_for_status()
-
         import re, json
-        # Understat embedder data i script-tagger som JSON
-        pattern = r"teamsData\s*=\s*JSON\.parse\('(.+?)'\)"
-        match = re.search(pattern, r.text)
-        if not match:
-            return {}
-
-        raw = match.group(1)
-        # Unscape unicode
-        raw = raw.encode('utf-8').decode('unicode_escape')
-        teams_data = json.loads(raw)
-
-        xg_stats = {}
-        for team_id, team in teams_data.items():
-            navn = team.get("title", "")
-            if not navn:
-                continue
-
-            # Hent xG og xGA fra kamphistorikk
-            history = team.get("history", [])
-            hjem_xg, hjem_xga, hjem_n = 0, 0, 0
-            borte_xg, borte_xga, borte_n = 0, 0, 0
-
-            for kamp in history:
-                h = kamp.get("h_a", "")
-                xg  = float(kamp.get("xG", 0) or 0)
-                xga = float(kamp.get("xGA", 0) or 0)
-                if h == "h":
-                    hjem_xg += xg; hjem_xga += xga; hjem_n += 1
-                elif h == "a":
-                    borte_xg += xg; borte_xga += xga; borte_n += 1
-
-            xg_stats[navn] = {
-                "hjem_xg":  round(hjem_xg / max(hjem_n, 1), 3),
-                "hjem_xga": round(hjem_xga / max(hjem_n, 1), 3),
-                "hjem_n":   hjem_n,
-                "borte_xg":  round(borte_xg / max(borte_n, 1), 3),
-                "borte_xga": round(borte_xga / max(borte_n, 1), 3),
-                "borte_n":   borte_n,
-            }
-        return xg_stats
-    except Exception:
-        return {}
-
-# ─────────────────────────────────────────────
-# DIXON-COLES STYRKEINDEKSER
-# ─────────────────────────────────────────────
-
-def beregn_styrkeindekser(lag_stats):
-    """
-    Beregner angrepsstyrke og forsvarsstyrke for hvert lag
-    relativt til ligagjennomsnittet (Dixon-Coles-metoden).
-    
-    Angrepsstyrke > 1.0 = scorer mer enn ligasnittet
-    Forsvarsstyrke < 1.0 = slipper inn færre enn ligasnittet (BEDRE forsvar)
-    """
-    if not lag_stats:
-        return {}
-
-    # Beregn ligasnitt
-    hjem_scoret_snitt = np.mean([
-        s["hjemme_scoret"] / max(s["hjemme_spilt"], 1)
-        for s in lag_stats.values()
-        if s.get("hjemme_spilt", 0) > 0
-    ]) if lag_stats else 1.5
-
-    borte_scoret_snitt = np.mean([
-        s["borte_scoret"] / max(s["borte_spilt"], 1)
-        for s in lag_stats.values()
-        if s.get("borte_spilt", 0) > 0
-    ]) if lag_stats else 1.1
-
-    styrke = {}
-    for navn, s in lag_stats.items():
-        hsp = max(s.get("hjemme_spilt", 0), 1)
-        bsp = max(s.get("borte_spilt", 0), 1)
-
-        hjem_score_snitt = s.get("hjemme_scoret", 0) / hsp
-        hjem_innsl_snitt = s.get("hjemme_innsluppet", 0) / hsp
-        borte_score_snitt = s.get("borte_scoret", 0) / bsp
-        borte_innsl_snitt = s.get("borte_innsluppet", 0) / bsp
-
-        styrke[navn] = {
-            # Angrepsstyrke: lagets snitt / ligasnitt
-            "angrep_hjem":  round(hjem_score_snitt / max(hjem_scoret_snitt, 0.1), 3),
-            "angrep_borte": round(borte_score_snitt / max(borte_scoret_snitt, 0.1), 3),
-            # Forsvarsstyrke: ligasnitt / lagets innslupne (høyere = bedre forsvar)
-            "forsvar_hjem":  round(hjem_scoret_snitt / max(hjem_innsl_snitt, 0.1), 3),
-            "forsvar_borte": round(borte_scoret_snitt / max(borte_innsl_snitt, 0.1), 3),
-            # Snitt
-            "hjem_sc_snitt":  round(hjem_score_snitt, 3),
-            "hjem_in_snitt":  round(hjem_innsl_snitt, 3),
-            "borte_sc_snitt": round(borte_score_snitt, 3),
-            "borte_in_snitt": round(borte_innsl_snitt, 3),
-            "liga_hjem_snitt":  round(hjem_scoret_snitt, 3),
-            "liga_borte_snitt": round(borte_scoret_snitt, 3),
-        }
-    return styrke
-
-# ─────────────────────────────────────────────
-# POISSON-MODELL (Dixon-Coles forbedret)
-# ─────────────────────────────────────────────
-
-def poisson_modell(h_styrke, b_styrke, xg_data_h=None, xg_data_b=None):
-    """
-    Beregner H/U/B med Poisson-fordeling basert på Dixon-Coles styrkeindekser.
-    Vekter inn xG der det er tilgjengelig.
-    """
-    try:
-        liga_hjem  = h_styrke.get("liga_hjem_snitt", 1.5)
-        liga_borte = h_styrke.get("liga_borte_snitt", 1.1)
-
-        # Forventet mål basert på styrkeindekser (Dixon-Coles)
-        lambda_h_dc = (h_styrke["angrep_hjem"] * b_styrke["forsvar_borte"] * liga_hjem)
-        lambda_b_dc = (b_styrke["angrep_borte"] * h_styrke["forsvar_hjem"] * liga_borte)
-
-        # Hvis xG er tilgjengelig, vekt 50/50 mellom modell og xG
-        if xg_data_h and xg_data_b:
-            xg_h = xg_data_h.get("hjem_xg", lambda_h_dc)
-            xg_b = xg_data_b.get("borte_xg", lambda_b_dc)
-            lambda_h = 0.5 * lambda_h_dc + 0.5 * xg_h
-            lambda_b = 0.5 * lambda_b_dc + 0.5 * xg_b
-        else:
-            lambda_h = lambda_h_dc
-            lambda_b = lambda_b_dc
-
-        # Begrens til realistiske verdier
-        lambda_h = max(0.3, min(lambda_h, 6.0))
-        lambda_b = max(0.3, min(lambda_b, 6.0))
-
-        ph = pu = pb = 0.0
-        for i in range(9):
-            for j in range(9):
-                p = poisson.pmf(i, lambda_h) * poisson.pmf(j, lambda_b)
-                if i > j:    ph += p
-                elif i == j: pu += p
-                else:        pb += p
-
-        tot = ph + pu + pb
-        return {
-            "H": round(ph/tot*100, 1),
-            "U": round(pu/tot*100, 1),
-            "B": round(pb/tot*100, 1),
-            "xH": round(lambda_h, 2),
-            "xB": round(lambda_b, 2),
-            "brukte_xg": xg_data_h is not None and xg_data_b is not None,
-        }
-    except:
-        return None
-
-# ─────────────────────────────────────────────
-# THE ODDS API
-# ─────────────────────────────────────────────
+        r = requests.get(f"https://understat.com/league/{liga_navn}",
+            headers={"User-Agent":"Mozilla/5.0","Referer":"https://understat.com/"}, timeout=15)
+        r.raise_for_status()
+        m = re.search(r"teamsData\s*=\s*JSON\.parse\('(.+?)'\)", r.text)
+        if not m: return {}
+        teams = json.loads(m.group(1).encode('utf-8').decode('unicode_escape'))
+        xg = {}
+        for _, t in teams.items():
+            navn = t.get("title","")
+            if not navn: continue
+            hxg=hxga=hn=bxg=bxga=bn=0
+            for k in t.get("history",[]):
+                ha=k.get("h_a",""); g=float(k.get("xG",0) or 0); ga=float(k.get("xGA",0) or 0)
+                if ha=="h": hxg+=g; hxga+=ga; hn+=1
+                elif ha=="a": bxg+=g; bxga+=ga; bn+=1
+            xg[navn] = {"hxg":round(hxg/max(hn,1),3),"bxg":round(bxg/max(bn,1),3)}
+        return xg
+    except: return {}
 
 @st.cache_data(ttl=300)
-def hent_odds(sport_key):
-    if not ODDS_API_KEY or not sport_key:
-        return []
+def hent_odds_liga(sport_key):
+    if not ODDS_API_KEY: return []
     try:
-        url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
-        params = {
-            "apiKey": ODDS_API_KEY,
-            "regions": "eu",
-            "markets": "h2h",
-            "oddsFormat": "decimal",
-        }
-        r = requests.get(url, params=params, timeout=10)
-        r.raise_for_status()
-        return r.json()
-    except:
-        return []
+        r = requests.get(f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/",
+            params={"apiKey":ODDS_API_KEY,"regions":"eu","markets":"h2h","oddsFormat":"decimal"}, timeout=10)
+        r.raise_for_status(); return r.json()
+    except: return []
 
-def match_odds(odds_liste, hjemme, borte):
-    hl, bl = hjemme.lower(), borte.lower()
-    for event in odds_liste:
-        eh = event.get("home_team", "").lower()
-        eb = event.get("away_team", "").lower()
-        if (hl in eh or eh in hl or hl.split()[0] in eh) and \
-           (bl in eb or eb in bl or bl.split()[0] in eb):
-            for bm in event.get("bookmakers", []):
-                for market in bm.get("markets", []):
-                    if market.get("key") == "h2h":
-                        outcomes = market.get("outcomes", [])
-                        odds = {}
-                        for o in outcomes:
-                            n = o.get("name", "").lower()
-                            p = o.get("price", 0)
-                            if eh in n or "home" in n: odds["H"] = p
-                            elif "draw" in n: odds["U"] = p
-                            elif eb in n or "away" in n: odds["B"] = p
-                        if len(odds) == 3:
-                            return odds
+def match_odds(liste, h, b):
+    hl,bl = h.lower(),b.lower()
+    for e in liste:
+        eh=e.get("home_team","").lower(); eb=e.get("away_team","").lower()
+        if (hl in eh or eh in hl or hl.split()[0] in eh) and (bl in eb or eb in bl or bl.split()[0] in eb):
+            for bm in e.get("bookmakers",[]):
+                for mkt in bm.get("markets",[]):
+                    if mkt.get("key")=="h2h":
+                        odds={}
+                        for o in mkt.get("outcomes",[]):
+                            n=o.get("name","").lower(); p=o.get("price",0)
+                            if eh in n or "home" in n: odds["H"]=p
+                            elif "draw" in n: odds["U"]=p
+                            elif eb in n or "away" in n: odds["B"]=p
+                        if len(odds)==3: return odds
     return None
 
-def impl_pct(odds_dict):
-    if not odds_dict: return None
+def impl(d):
+    if not d: return None
     try:
-        vig = sum(1/v for v in odds_dict.values() if v > 0)
-        return {k: round((1/v)/vig*100, 1) for k, v in odds_dict.items() if v > 0}
-    except:
-        return None
+        vig=sum(1/v for v in d.values() if v>0)
+        return {k:round((1/v)/vig*100,1) for k,v in d.items() if v>0}
+    except: return None
 
-# ─────────────────────────────────────────────
-# FUZZY NAVNEMATCHING
-# ─────────────────────────────────────────────
-
-def fuzzy_match(stats_dict, lagnavn):
-    if not stats_dict or not lagnavn:
-        return None
-    if lagnavn in stats_dict:
-        return stats_dict[lagnavn]
-    l = lagnavn.lower()
-    for k, v in stats_dict.items():
-        if l in k.lower() or k.lower() in l:
-            return v
-    første = l.split()[0] if l.split() else ""
-    for k, v in stats_dict.items():
-        if første and len(første) > 3 and første in k.lower():
-            return v
+def fuzzy(d, navn):
+    if not d or not navn: return None
+    if navn in d: return d[navn]
+    l=navn.lower()
+    for k,v in d.items():
+        if l in k.lower() or k.lower() in l: return v
+    f=l.split()[0] if l.split() else ""
+    for k,v in d.items():
+        if f and len(f)>3 and f in k.lower(): return v
     return None
 
-# ─────────────────────────────────────────────
-# CSS
-# ─────────────────────────────────────────────
+def poisson_calc(hs, bs, hxg=None, bxg=None):
+    try:
+        lh_dc = hs["ah"] * bs["fb"] * hs["lh"]
+        lb_dc = bs["ab"] * hs["fh"] * hs["lb"]
+        brukte_xg = False
+        if hxg and bxg and hxg.get("hxg",0)>0 and bxg.get("bxg",0)>0:
+            lh = 0.5*lh_dc + 0.5*hxg["hxg"]
+            lb = 0.5*lb_dc + 0.5*bxg["bxg"]
+            brukte_xg = True
+        else:
+            lh,lb = lh_dc,lb_dc
+        lh=max(.3,min(lh,6.)); lb=max(.3,min(lb,6.))
+        ph=pu=pb=0.
+        for i in range(9):
+            for j in range(9):
+                p=poisson.pmf(i,lh)*poisson.pmf(j,lb)
+                if i>j: ph+=p
+                elif i==j: pu+=p
+                else: pb+=p
+        tot=ph+pu+pb
+        return {"H":round(ph/tot*100,1),"U":round(pu/tot*100,1),"B":round(pb/tot*100,1),
+                "lh":round(lh,2),"lb":round(lb,2),"xg":brukte_xg}
+    except: return None
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+def avvik_html(val, folk, tag=""):
+    if val is None: return f"<span class='u-t'>{tag}</span><span class='u-a nøy'>—</span>"
+    av = round(val-folk,1); p="+" if av>0 else ""
+    cls = "pos" if av>8 else ("neg" if av<-8 else "nøy")
+    tag_html = f"<span class='u-t'>{tag}</span>" if tag else "<span></span>"
+    return f"{tag_html}<span class='u-a {cls}'>{p}{av}pp</span>"
 
-.kamp-kort {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-left: 3px solid #1e293b;
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 14px;
-}
-.kamp-kort.verdi {
-    border-color: #22c55e44;
-    border-left: 3px solid #22c55e;
-}
-.kamp-tittel {
-    font-size: 16px; font-weight: 800;
-    color: #f1f5f9; margin-bottom: 2px;
-}
-.kamp-meta { font-size: 12px; color: #475569; }
-.verdi-badge {
-    display: inline-block;
-    background: #14532d; color: #4ade80;
-    font-size: 10px; font-weight: 700;
-    padding: 2px 9px; border-radius: 20px;
-    margin-left: 8px; letter-spacing: 0.5px;
-}
-.seksjon {
-    background: #131e2e;
-    border-radius: 8px;
-    padding: 14px;
-    height: 100%;
-}
-.sek-tittel {
-    font-size: 11px; font-weight: 700;
-    color: #475569; letter-spacing: 0.08em;
-    text-transform: uppercase; margin-bottom: 12px;
-}
-.folk-rad { margin-bottom: 8px; }
-.folk-topp {
-    display: flex; justify-content: space-between;
-    font-size: 12px; color: #94a3b8; margin-bottom: 4px;
-}
-.folk-bar { height: 5px; background: #1e293b; border-radius: 3px; }
-.folk-fill-H { background: #3b82f6; border-radius: 3px; height: 5px; }
-.folk-fill-U { background: #eab308; border-radius: 3px; height: 5px; }
-.folk-fill-B { background: #a855f7; border-radius: 3px; height: 5px; }
-.utfall-rad {
-    display: flex; align-items: center;
-    gap: 6px; margin-bottom: 8px; font-size: 13px;
-}
-.u-label { color: #64748b; min-width: 80px; font-size: 12px; }
-.u-pct { color: #e2e8f0; font-weight: 700; font-family: monospace; min-width: 42px; }
-.u-odds { color: #475569; font-size: 11px; min-width: 55px; }
-.u-avvik { font-weight: 700; font-family: monospace; font-size: 12px; }
-.stat-grid {
-    display: grid; grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px; margin-top: 4px;
-}
-.stat-boks {
-    background: #1e293b; border-radius: 6px;
-    padding: 8px 10px; text-align: center;
-}
-.stat-label { font-size: 10px; color: #475569; margin-bottom: 3px; }
-.stat-val { font-size: 16px; font-weight: 800; color: #e2e8f0; font-family: monospace; }
-.stat-sub { font-size: 10px; color: #64748b; }
-.styrke-rad {
-    display: flex; justify-content: space-between;
-    font-size: 12px; padding: 4px 0;
-    border-bottom: 1px solid #1e293b;
-}
-.xg-badge {
-    display: inline-block;
-    background: #1e3a5f; color: #60a5fa;
-    font-size: 10px; font-weight: 700;
-    padding: 1px 6px; border-radius: 4px; margin-left: 4px;
-}
-</style>
-""", unsafe_allow_html=True)
+def styrke_cls(v, høy_er_bra=True):
+    if v is None: return ""
+    if høy_er_bra: return "c-grønn" if v>1.1 else ("c-rød" if v<0.9 else "")
+    return "c-rød" if v>1.1 else ("c-grønn" if v<0.9 else "")
 
 # ─────────────────────────────────────────────
-# APP START
+# HENT DATA
 # ─────────────────────────────────────────────
 
-st.title("⚽ TippingAnalyse")
-st.caption("Folkerekke · Markedsodds · Dixon-Coles Poisson-modell med xG")
-
-# ─── Last NT ───
-with st.spinner("Henter tippekupong fra Norsk Tipping..."):
-    nt_json, nt_feil = hent_nt_data()
+with st.spinner(""):
+    nt_json, nt_feil = hent_nt()
 if nt_feil or not nt_json:
-    st.error(f"Kunne ikke hente NT-data: {nt_feil}")
-    st.stop()
+    st.error(f"Norsk Tipping feil: {nt_feil}"); st.stop()
 
 df = prosesser_nt(nt_json)
-ligaer_i_kupong = df["Liga"].unique().tolist()
+ligaer = df["Liga"].unique().tolist()
 
-# ─── Last football-data.org ───
-fd_cache = {}
-styrke_cache = {}
-with st.spinner("Henter statistikk og beregner styrkeindekser..."):
-    for liga, kode in FD_LIGA_IDS.items():
-        if liga in ligaer_i_kupong:
-            stats = hent_fd_statistikk(kode)
-            if stats:
-                fd_cache[liga] = stats
-                styrke_cache[liga] = beregn_styrkeindekser(stats)
+fd_cache, styrke_cache, fd_feil = {}, {}, {}
+for liga, kode in FD_LIGA_IDS.items():
+    if liga in ligaer:
+        stats, feil = hent_fd(kode)
+        if stats:
+            fd_cache[liga] = stats
+            styrke_cache[liga] = beregn_styrke(stats)
+        if feil:
+            fd_feil[liga] = feil
 
-# ─── Last Understat xG ───
 xg_cache = {}
-with st.spinner("Henter xG-data fra Understat..."):
-    for liga, understat_navn in UNDERSTAT_LIGAER.items():
-        if liga in ligaer_i_kupong:
-            xg = hent_understat_xg(understat_navn)
-            if xg:
-                xg_cache[liga] = xg
+for liga, u_navn in UNDERSTAT_LIGAER.items():
+    if liga in ligaer:
+        xg = hent_xg(u_navn)
+        if xg: xg_cache[liga] = xg
 
-# ─── Last odds ───
 odds_cache = {}
-with st.spinner("Henter markedsodds..."):
-    for liga, sport_key in ODDS_SPORT_KEYS.items():
-        if liga in ligaer_i_kupong:
-            data = hent_odds(sport_key)
-            if data:
-                odds_cache[liga] = data
+for liga, sport_key in ODDS_SPORT_KEYS.items():
+    if liga in ligaer:
+        data = hent_odds_liga(sport_key)
+        if data: odds_cache[liga] = data
 
-# ─── Status ───
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Kamper", len(df))
-col2.metric("Ligaer m/ statistikk", len(fd_cache))
-col3.metric("Ligaer m/ xG", len(xg_cache))
-col4.metric("Ligaer m/ odds", len(odds_cache))
+# ─────────────────────────────────────────────
+# APP HEADER
+# ─────────────────────────────────────────────
 
-# ─── Forklaring ───
-with st.expander("ℹ️ Slik leser du analysen"):
-    st.markdown("""
-    ### Tre sannsynlighetsestimater sammenlignes mot Folkerekka:
+st.markdown("<div class='app-title'>⚽ TippingAnalyse</div>", unsafe_allow_html=True)
+st.markdown("<div class='app-sub'>Folkerekke · Markedsodds · Dixon-Coles Poisson-modell med xG</div>", unsafe_allow_html=True)
 
-    | | Kilde | Metode |
-    |-|-------|--------|
-    | 👥 **Folkerekka** | Norsk Tipping | Hva vanlige tippere tror (%) |
-    | 📈 **Markedsodds** | The Odds API | Implisitt % fra bookmaker-odds (margin fjernet) |
-    | 🔢 **Poisson-modell** | football-data.org + Understat | Dixon-Coles med xG der tilgjengelig |
+# Status-piller
+def pill(ok, tekst):
+    cls = "pill-ok" if ok else "pill-err"
+    return f"<span class='pill {cls}'><span class='pill-dot'></span>{tekst}</span>"
 
-    ### Poisson-modellen (Dixon-Coles):
-    - **Angrepsstyrke** = lagets scoresnitt / ligasnitt (>1.0 = bedre enn snitt)
-    - **Forsvarsstyrke** = ligasnitt / lagets innslupne (>1.0 = bedre enn snitt)
-    - **Forventet mål (λ)** = hjemmeangrep × borteforsvar × ligasnitt
-    - **xG vektes 50/50** der Understat-data er tilgjengelig
+def pill_warn(ok, tekst):
+    cls = "pill-ok" if ok else "pill-warn"
+    return f"<span class='pill {cls}'><span class='pill-dot'></span>{tekst}</span>"
 
-    ### Verdisignaler:
-    - 🟢 **Grønn +pp** = Modell/odds ser MER enn folk → **underspilt → verdi**
-    - 🔴 **Rød -pp** = Folk overtipper → **overspilt → vær forsiktig**
-    """)
+pills = "".join([
+    pill(True, f"NT — {len(df)} kamper"),
+    pill(bool(fd_cache), f"football-data.org — {len(fd_cache)} ligaer"),
+    pill_warn(bool(xg_cache), f"Understat xG — {len(xg_cache)} ligaer"),
+    pill_warn(bool(odds_cache), f"The Odds API — {len(odds_cache)} ligaer"),
+])
+st.markdown(f"<div class='status-bar'>{pills}</div>", unsafe_allow_html=True)
 
-# ─── Filter ───
-st.sidebar.header("🔍 Filter")
+# Vis eventuelle feil fra football-data.org
+if fd_feil and not fd_cache:
+    feil_tekst = list(fd_feil.values())[0]
+    st.error(f"⚠️ football-data.org: {feil_tekst}")
+
+# ─── Sidebar ───
+st.sidebar.markdown("### 🔍 Filter")
 dag_valg = st.sidebar.multiselect("Kupong", options=df["Dag"].unique(), default=df["Dag"].unique())
-bare_verdi = st.sidebar.checkbox("Vis bare verdisignaler (>8pp)")
+bare_verdi = st.sidebar.checkbox("Kun verdisignaler (>8pp)")
 min_avvik = st.sidebar.slider("Minste avvik å vise (pp)", 0, 20, 0)
-if st.sidebar.button("🔄 Oppdater alle data"):
-    st.cache_data.clear()
-    st.rerun()
+st.sidebar.markdown("---")
+show_debug = st.sidebar.checkbox("🛠 Vis debug-info")
+if show_debug:
+    st.sidebar.markdown("**football-data.org:**")
+    for liga, stats in fd_cache.items():
+        lag_eks = list(stats.keys())[:2]
+        st.sidebar.success(f"✅ {liga}: {len(stats)} lag\n_{', '.join(lag_eks)}_")
+    for liga, feil in fd_feil.items():
+        st.sidebar.error(f"❌ {liga}: {feil}")
+if st.sidebar.button("🔄 Oppdater data"):
+    st.cache_data.clear(); st.rerun()
 
 df_vis = df[df["Dag"].isin(dag_valg)].copy()
-st.divider()
 
 # ─────────────────────────────────────────────
 # KAMPVISNING
@@ -587,206 +440,157 @@ st.divider()
 verdikamper = 0
 
 for dag in df_vis["Dag"].unique():
-    st.subheader(f"📅 {dag}kupong")
+    st.markdown(f"<div class='dag-hdr'>{dag}kupong</div>", unsafe_allow_html=True)
 
     for _, rad in df_vis[df_vis["Dag"] == dag].iterrows():
-        hjemmelag = rad["Hjemmelag"]
-        bortelag  = rad["Bortelag"]
-        liga      = rad["Liga"]
-        folk_h    = rad["Folk H%"]
-        folk_u    = rad["Folk U%"]
-        folk_b    = rad["Folk B%"]
+        hjem = rad["Hjemmelag"]; borte = rad["Bortelag"]
+        liga = rad["Liga"]; fh = rad["Folk H%"]; fu = rad["Folk U%"]; fb = rad["Folk B%"]
 
-        # ── Styrkeindekser ──
-        styrke = styrke_cache.get(liga, {})
-        h_styrke = fuzzy_match(styrke, hjemmelag)
-        b_styrke = fuzzy_match(styrke, bortelag)
+        hs = fuzzy(styrke_cache.get(liga,{}), hjem)
+        bs = fuzzy(styrke_cache.get(liga,{}), borte)
+        hxg = fuzzy(xg_cache.get(liga,{}), hjem)
+        bxg = fuzzy(xg_cache.get(liga,{}), borte)
+        poi = poisson_calc(hs, bs, hxg, bxg) if hs and bs else None
+        rå  = match_odds(odds_cache.get(liga,[]), hjem, borte)
+        im  = impl(rå)
 
-        # ── xG ──
-        xg_liga = xg_cache.get(liga, {})
-        h_xg = fuzzy_match(xg_liga, hjemmelag)
-        b_xg = fuzzy_match(xg_liga, bortelag)
+        alle_avvik = []
+        for (pv,fv) in ([(poi["H"],fh),(poi["U"],fu),(poi["B"],fb)] if poi else []):
+            alle_avvik.append(abs(pv-fv))
+        for (iv,fv) in ([(im["H"],fh),(im["U"],fu),(im["B"],fb)] if im else []):
+            alle_avvik.append(abs(iv-fv))
+        max_av = max(alle_avvik, default=0)
 
-        # ── Poisson-modell ──
-        poi = None
-        if h_styrke and b_styrke:
-            poi = poisson_modell(h_styrke, b_styrke, h_xg, b_xg)
+        if bare_verdi and max_av < 8: continue
+        if max_av < min_avvik: continue
+        if max_av >= 8: verdikamper += 1
 
-        # ── Markedsodds ──
-        odds_liste = odds_cache.get(liga, [])
-        rå_odds = match_odds(odds_liste, hjemmelag, bortelag) if odds_liste else None
-        impl = impl_pct(rå_odds)
+        verdi = max_av >= 8
+        badges = ""
+        if verdi: badges += "<span class='bdg bdg-v'>✦ Verdi</span>"
+        if poi and poi.get("xg"): badges += "<span class='bdg bdg-x'>xG</span>"
+        if im: badges += "<span class='bdg bdg-o'>Odds</span>"
 
-        # ── Avvik ──
-        poi_avvik = [
-            (poi["H"] - folk_h) if poi else None,
-            (poi["U"] - folk_u) if poi else None,
-            (poi["B"] - folk_b) if poi else None,
-        ]
-        odds_avvik = [
-            (impl["H"] - folk_h) if impl else None,
-            (impl["U"] - folk_u) if impl else None,
-            (impl["B"] - folk_b) if impl else None,
-        ]
-        alle_avvik = [abs(a) for a in poi_avvik + odds_avvik if a is not None]
-        max_avvik  = max(alle_avvik, default=0)
-
-        if bare_verdi and max_avvik < 8: continue
-        if max_avvik < min_avvik: continue
-        if max_avvik >= 8: verdikamper += 1
-
-        har_verdi = max_avvik >= 8
-        verdi_klasse = "kamp-kort verdi" if har_verdi else "kamp-kort"
-        badge = "<span class='verdi-badge'>✦ VERDI</span>" if har_verdi else ""
-        xg_badge = "<span class='xg-badge'>xG</span>" if (h_xg and b_xg) else ""
-
-        # ── Render kort ──
-        st.markdown(f"<div class='{verdi_klasse}'>", unsafe_allow_html=True)
-
-        # Header
+        st.markdown(f"<div class='kamp {'verdi' if verdi else ''}'>", unsafe_allow_html=True)
         st.markdown(f"""
-        <div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px'>
-            <div>
-                <div class='kamp-tittel'>{rad['Kamp']}{badge}</div>
-                <div class='kamp-meta'>{liga} · {rad['Dato']} {xg_badge}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div class='kamp-top'>
+            <div><div class='k-navn'>{rad['Kamp']}</div><div class='k-meta'>{liga} · {rad['Dato']}</div></div>
+            <div class='badges'>{badges}</div>
+        </div>""", unsafe_allow_html=True)
 
         k1, k2, k3 = st.columns(3)
 
-        # ── Folkerekka ──
         with k1:
-            farger = {"H": "folk-fill-H", "U": "folk-fill-U", "B": "folk-fill-B"}
-            st.markdown("<div class='seksjon'>", unsafe_allow_html=True)
-            st.markdown("<div class='sek-tittel'>👥 Folkerekka</div>", unsafe_allow_html=True)
-            for label, utfall, val in [("Hjemme", "H", folk_h), ("Uavgjort", "U", folk_u), ("Borte", "B", folk_b)]:
-                st.markdown(f"""
-                <div class='folk-rad'>
-                    <div class='folk-topp'><span>{label}</span><span><b>{val}%</b></span></div>
-                    <div class='folk-bar'><div class='{farger[utfall]}' style='width:{val}%'></div></div>
-                </div>
-                """, unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='padding:15px 4px'>
+            <div class='sek-lbl'>👥 Folkerekka</div>
+            <div class='folk-item'>
+                <div class='folk-row'><span class='folk-lbl'>Hjemme</span><span class='folk-pct'>{fh}%</span></div>
+                <div class='bar'><div class='bar-h' style='width:{fh}%'></div></div>
+            </div>
+            <div class='folk-item'>
+                <div class='folk-row'><span class='folk-lbl'>Uavgjort</span><span class='folk-pct'>{fu}%</span></div>
+                <div class='bar'><div class='bar-u' style='width:{fu}%'></div></div>
+            </div>
+            <div class='folk-item'>
+                <div class='folk-row'><span class='folk-lbl'>Borte</span><span class='folk-pct'>{fb}%</span></div>
+                <div class='bar'><div class='bar-b' style='width:{fb}%'></div></div>
+            </div>
+            </div>""", unsafe_allow_html=True)
 
-        # ── Markedsodds ──
         with k2:
-            st.markdown("<div class='seksjon'>", unsafe_allow_html=True)
-            st.markdown("<div class='sek-tittel'>📈 Markedsodds</div>", unsafe_allow_html=True)
-            if impl and rå_odds:
-                for label, key, fv in [("Hjemme", "H", folk_h), ("Uavgjort", "U", folk_u), ("Borte", "B", folk_b)]:
-                    avvik = round(impl.get(key, 0) - fv, 1)
-                    prefix = "+" if avvik > 0 else ""
-                    if avvik > 8: farge = "#22c55e"; ikon = "🟢"
-                    elif avvik < -8: farge = "#ef4444"; ikon = "🔴"
-                    else: farge = "#64748b"; ikon = "⚪"
-                    st.markdown(f"""
-                    <div class='utfall-rad'>
-                        <span class='u-label'>{label}</span>
-                        <span class='u-pct'>{impl.get(key,'–')}%</span>
-                        <span class='u-odds'>odds {rå_odds.get(key,'–')}</span>
-                        <span class='u-avvik' style='color:{farge}'>{ikon} {prefix}{avvik}pp</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+            st.markdown("<div style='padding:15px 4px'>", unsafe_allow_html=True)
+            st.markdown("<div class='sek-lbl'>📈 Markedsodds</div>", unsafe_allow_html=True)
+            if im and rå:
+                for lbl,key,fv in [("Hjemme","H",fh),("Uavgjort","U",fu),("Borte","B",fb)]:
+                    av=round(im[key]-fv,1); p="+" if av>0 else ""
+                    cls="pos" if av>8 else ("neg" if av<-8 else "nøy")
+                    st.markdown(f"""<div class='utfall'>
+                        <span class='u-n'>{lbl}</span>
+                        <span class='u-p'>{im[key]}%</span>
+                        <span class='u-t'>{rå[key]}</span>
+                        <span class='u-a {cls}'>{p}{av}pp</span>
+                    </div>""", unsafe_allow_html=True)
             else:
-                st.markdown("<div style='font-size:12px;color:#475569;font-style:italic'>Odds ikke tilgjengelig</div>", unsafe_allow_html=True)
+                st.markdown("<div class='ingen'>Odds ikke tilgjengelig</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Poisson-modell ──
         with k3:
-            st.markdown("<div class='seksjon'>", unsafe_allow_html=True)
-            xg_info = " (inkl. xG)" if poi and poi.get("brukte_xg") else ""
-            st.markdown(f"<div class='sek-tittel'>🔢 Poisson-modell{xg_info}</div>", unsafe_allow_html=True)
+            xg_suf = " (inkl. xG)" if poi and poi.get("xg") else ""
+            st.markdown("<div style='padding:15px 4px'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='sek-lbl'>🔢 Poisson-modell{xg_suf}</div>", unsafe_allow_html=True)
             if poi:
-                for label, key, pv, fv in [
-                    ("Hjemme", "H", poi["H"], folk_h),
-                    ("Uavgjort", "U", poi["U"], folk_u),
-                    ("Borte", "B", poi["B"], folk_b),
-                ]:
-                    avvik = round(pv - fv, 1)
-                    prefix = "+" if avvik > 0 else ""
-                    if avvik > 8: farge = "#22c55e"; ikon = "🟢"
-                    elif avvik < -8: farge = "#ef4444"; ikon = "🔴"
-                    else: farge = "#64748b"; ikon = "⚪"
-                    st.markdown(f"""
-                    <div class='utfall-rad'>
-                        <span class='u-label'>{label}</span>
-                        <span class='u-pct'>{pv}%</span>
-                        <span class='u-odds'></span>
-                        <span class='u-avvik' style='color:{farge}'>{ikon} {prefix}{avvik}pp</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                st.markdown(f"<div style='font-size:11px;color:#475569;margin-top:6px'>λ hjemme: {poi['xH']} · λ borte: {poi['xB']}</div>", unsafe_allow_html=True)
+                for lbl,key,fv in [("Hjemme","H",fh),("Uavgjort","U",fu),("Borte","B",fb)]:
+                    av=round(poi[key]-fv,1); p="+" if av>0 else ""
+                    cls="pos" if av>8 else ("neg" if av<-8 else "nøy")
+                    lambda_vis = poi['lh'] if key=='H' else (poi['lb'] if key=='B' else "")
+                    tag = f"λ={lambda_vis}" if key!='U' else ""
+                    st.markdown(f"""<div class='utfall'>
+                        <span class='u-n'>{lbl}</span>
+                        <span class='u-p'>{poi[key]}%</span>
+                        <span class='u-t'>{tag}</span>
+                        <span class='u-a {cls}'>{p}{av}pp</span>
+                    </div>""", unsafe_allow_html=True)
             else:
-                st.markdown("<div style='font-size:12px;color:#475569;font-style:italic'>Ikke nok data for modellen</div>", unsafe_allow_html=True)
+                if not FOOTBALL_DATA_KEY:
+                    msg = "FOOTBALL_DATA_KEY mangler i Secrets"
+                elif not hs and not bs:
+                    msg = f"Ingen data for {hjem} eller {borte}"
+                elif not hs:
+                    msg = f"Ingen data for {hjem}"
+                elif not bs:
+                    msg = f"Ingen data for {borte}"
+                else:
+                    msg = "Beregning feilet"
+                st.markdown(f"<div class='ingen'>{msg}</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Lagstatistikk og styrkeindekser ──
-        if h_styrke or b_styrke:
-            st.markdown("<div style='border-top:1px solid #1e293b;margin:16px 0 12px'></div>", unsafe_allow_html=True)
-            s1, s2 = st.columns(2)
+        # Lagstatistikk
+        if hs or bs:
+            st.markdown("<div class='stat-sek'>", unsafe_allow_html=True)
+            ss1, ss2 = st.columns(2)
+            with ss1:
+                if hs:
+                    xg_str = f" · xG {hxg.get('hxg','–')}" if hxg else ""
+                    st.markdown(f"<div class='lag-lbl'>🏠 {hjem} hjemme ({hs.get('hs','–')} kamper{xg_str})</div>", unsafe_allow_html=True)
+                    sc_cls=styrke_cls(hs.get("ah")); fc_cls=styrke_cls(hs.get("fh"))
+                    st.markdown(f"""<div class='chips'>
+                        <div class='chip'><div class='c-lbl'>Scoret/kamp</div><div class='c-val {sc_cls}'>{hs.get('hsc','–')}</div></div>
+                        <div class='chip'><div class='c-lbl'>Innsluppet/kamp</div><div class='c-val'>{hs.get('hin','–')}</div></div>
+                        <div class='chip'><div class='c-lbl'>Angrepsstyrke</div><div class='c-val {sc_cls}'>{hs.get('ah','–')}</div><div class='c-sub'>1.0 = ligasnitt</div></div>
+                        <div class='chip'><div class='c-lbl'>Forsvarsstyrke</div><div class='c-val {fc_cls}'>{hs.get('fh','–')}</div><div class='c-sub'>1.0 = ligasnitt</div></div>
+                    </div>""", unsafe_allow_html=True)
+            with ss2:
+                if bs:
+                    xg_str2 = f" · xG {bxg.get('bxg','–')}" if bxg else ""
+                    st.markdown(f"<div class='lag-lbl'>✈️ {borte} borte ({bs.get('bs','–')} kamper{xg_str2})</div>", unsafe_allow_html=True)
+                    sc_cls2=styrke_cls(bs.get("ab")); fc_cls2=styrke_cls(bs.get("fb"))
+                    st.markdown(f"""<div class='chips'>
+                        <div class='chip'><div class='c-lbl'>Scoret/kamp</div><div class='c-val {sc_cls2}'>{bs.get('bsc','–')}</div></div>
+                        <div class='chip'><div class='c-lbl'>Innsluppet/kamp</div><div class='c-val'>{bs.get('bin','–')}</div></div>
+                        <div class='chip'><div class='c-lbl'>Angrepsstyrke</div><div class='c-val {sc_cls2}'>{bs.get('ab','–')}</div><div class='c-sub'>1.0 = ligasnitt</div></div>
+                        <div class='chip'><div class='c-lbl'>Forsvarsstyrke</div><div class='c-val {fc_cls2}'>{bs.get('fb','–')}</div><div class='c-sub'>1.0 = ligasnitt</div></div>
+                    </div>""", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            with s1:
-                if h_styrke:
-                    hj_xg_str = f" · xG: {h_xg.get('hjem_xg','–')}" if h_xg else ""
-                    st.markdown(f"<div style='font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px'>🏠 {hjemmelag} — hjemme{hj_xg_str}</div>", unsafe_allow_html=True)
-                    st.markdown(f"""
-                    <div class='stat-grid'>
-                        <div class='stat-boks'>
-                            <div class='stat-label'>Kamper</div>
-                            <div class='stat-val'>{fd_cache.get(liga,{}).get(list(styrke.keys())[0] if styrke else '',{}).get('hjemme_spilt','–') if False else h_styrke.get('hjem_sc_snitt','–')}</div>
-                        </div>
-                        <div class='stat-boks'>
-                            <div class='stat-label'>⚽ Scoret/kamp</div>
-                            <div class='stat-val'>{h_styrke.get('hjem_sc_snitt','–')}</div>
-                            <div class='stat-sub'>Angrepsstyrke: {h_styrke.get('angrep_hjem','–')}</div>
-                        </div>
-                        <div class='stat-boks'>
-                            <div class='stat-label'>🥅 Innsluppet/kamp</div>
-                            <div class='stat-val'>{h_styrke.get('hjem_in_snitt','–')}</div>
-                            <div class='stat-sub'>Forsvarsstyrke: {h_styrke.get('forsvar_hjem','–')}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with s2:
-                if b_styrke:
-                    bo_xg_str = f" · xG: {b_xg.get('borte_xg','–')}" if b_xg else ""
-                    st.markdown(f"<div style='font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px'>✈️ {bortelag} — borte{bo_xg_str}</div>", unsafe_allow_html=True)
-                    st.markdown(f"""
-                    <div class='stat-grid'>
-                        <div class='stat-boks'>
-                            <div class='stat-label'>⚽ Scoret/kamp</div>
-                            <div class='stat-val'>{b_styrke.get('borte_sc_snitt','–')}</div>
-                            <div class='stat-sub'>Angrepsstyrke: {b_styrke.get('angrep_borte','–')}</div>
-                        </div>
-                        <div class='stat-boks'>
-                            <div class='stat-label'>🥅 Innsluppet/kamp</div>
-                            <div class='stat-val'>{b_styrke.get('borte_in_snitt','–')}</div>
-                            <div class='stat-sub'>Forsvarsstyrke: {b_styrke.get('forsvar_borte','–')}</div>
-                        </div>
-                        <div class='stat-boks'>
-                            <div class='stat-label'>Ligasnitt hjem</div>
-                            <div class='stat-val'>{b_styrke.get('liga_hjem_snitt','–')}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-        # ── Verdioppsummering ──
-        alle_poi = [("Hjemme", poi_avvik[0]), ("Uavgjort", poi_avvik[1]), ("Borte", poi_avvik[2])]
-        beste = max(alle_poi, key=lambda x: abs(x[1]) if x[1] is not None else 0)
-        if beste[1] is not None and beste[1] > 8:
-            st.markdown(f"<div style='margin-top:12px;padding:10px 14px;background:#14532d;border-radius:8px;color:#4ade80;font-weight:700;font-size:13px'>🟢 Verdisignal: Poisson ser {beste[1]}pp mer sannsynlighet for <b>{beste[0]}</b> enn folkerekka</div>", unsafe_allow_html=True)
-        elif beste[1] is not None and beste[1] < -8:
-            st.markdown(f"<div style='margin-top:12px;padding:10px 14px;background:#7f1d1d;border-radius:8px;color:#fca5a5;font-weight:700;font-size:13px'>🔴 Obs: Folk overtipper <b>{beste[0]}</b> med {abs(beste[1])}pp vs modellen</div>", unsafe_allow_html=True)
+        # Verdibanner
+        if poi:
+            poi_av = [("Hjemme",poi["H"]-fh),("Uavgjort",poi["U"]-fu),("Borte",poi["B"]-fb)]
+            beste = max(poi_av, key=lambda x: abs(x[1]))
+            if beste[1] > 8:
+                st.markdown(f"<div class='banner ban-v'>🟢 Verdisignal: Poisson ser +{round(beste[1],1)}pp for <b>{beste[0]}</b> vs. folkerekka</div>", unsafe_allow_html=True)
+            elif beste[1] < -8:
+                st.markdown(f"<div class='banner ban-r'>🔴 Folk overtipper <b>{beste[0]}</b> med {round(abs(beste[1]),1)}pp vs. modellen</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-# ─── Bunntall ───
-st.divider()
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Kamper vist", len(df_vis))
-c2.metric("✦ Verdisignaler", verdikamper)
-c3.metric("Ligaer m/ statistikk", len(fd_cache))
-c4.metric("Ligaer m/ xG", len(xg_cache))
-st.caption(f"Norsk Tipping · football-data.org · Understat (xG) · The Odds API · {datetime.now().strftime('%H:%M:%S')}")
+# Bunntall
+st.markdown(f"""
+<div class='footer'>
+    <div class='f-stat'><div class='f-val'>{len(df_vis)}</div><div class='f-lbl'>Kamper</div></div>
+    <div class='f-stat'><div class='f-val'>{verdikamper}</div><div class='f-lbl'>Verdisignaler</div></div>
+    <div class='f-stat'><div class='f-val'>{len(fd_cache)}</div><div class='f-lbl'>Ligaer m/ statistikk</div></div>
+    <div class='f-stat'><div class='f-val'>{len(xg_cache)}</div><div class='f-lbl'>Ligaer m/ xG</div></div>
+    <div class='f-stat'><div class='f-val' style='font-size:16px'>{datetime.now().strftime('%H:%M')}</div><div class='f-lbl'>Oppdatert</div></div>
+</div>
+""", unsafe_allow_html=True)
