@@ -1,5 +1,7 @@
-streamlit  
-requests  
-pandas  
-scipy  
-numpy 
+streamlit
+requests
+pandas
+scipy
+numpy
+gspread
+google-auth
