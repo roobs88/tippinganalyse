@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import requests
-from scipy.stats import poisson
 from datetime import datetime, date
 import numpy as np
-import unicodedata
+import json
+import os
 
 try:
     import gspread
@@ -13,6 +13,16 @@ try:
 except ImportError:
     GSPREAD_AVAILABLE = False
 
+from backtest_config import DEFAULT_PARAMS
+from fotmob_api import (
+    FOTMOB_LIGA_IDS, FOTMOB_HEADERS, TEAM_NAME_OVERRIDES,
+    _normalize, resolve_team, _parse_table_row,
+    hent_fotmob_tabell as _hent_fotmob_tabell,
+    hent_fotmob_team as _hent_fotmob_team,
+    hent_fotmob_xg as _hent_fotmob_xg,
+    beregn_styrke, beregn_form_styrke, beregn_dyp_poisson,
+)
+
 st.set_page_config(page_title="TippingAnalyse", page_icon="⚽", layout="wide")
 
 # ─────────────────────────────────────────────
@@ -20,67 +30,6 @@ st.set_page_config(page_title="TippingAnalyse", page_icon="⚽", layout="wide")
 # ─────────────────────────────────────────────
 
 NT_API = "https://api.norsk-tipping.no/PoolGamesSportInfo/v1/api/tipping/live-info"
-
-FOTMOB_LIGA_IDS = {
-    "ENG Premier League": 47,
-    "ENG Championship": 48,
-    "ENG League 1": 49,
-    "ENG League 2": 50,
-    "UEFA Champions League": 42,
-    "Champions League": 42,
-    "UEFA Europa League": 73,
-    "Europa League": 73,
-    "SPA LaLiga": 87,
-    "ITA Serie A": 55,
-    "GER Bundesliga": 54,
-    "TYS 1. Bundesliga": 54,
-    "FRA Ligue 1": 53,
-    "NOR Eliteserien": 59,
-    "SKO Premiership": 65,
-    "NED Eredivisie": 57,
-    "POR Primeira Liga": 61,
-    "TUR Süper Lig": 71,
-}
-
-FOTMOB_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-    "Accept": "application/json",
-    "Referer": "https://www.fotmob.com/",
-}
-
-# Manuell override for kjente avvik mellom NT-navn og FotMob-navn
-TEAM_NAME_OVERRIDES = {
-    "Wolverhampton": "Wolverhampton Wanderers",
-    "Wolves": "Wolverhampton Wanderers",
-    "Nott'm Forest": "Nottingham Forest",
-    "Nottingham": "Nottingham Forest",
-    "West Ham United": "West Ham",
-    "Tottenham Hotspur": "Tottenham",
-    "Spurs": "Tottenham",
-    "Man City": "Manchester City",
-    "Man Utd": "Manchester United",
-    "Man United": "Manchester United",
-    "Newcastle Utd": "Newcastle United",
-    "Newcastle": "Newcastle United",
-    "Brighton": "Brighton and Hove Albion",
-    "Sheffield Utd": "Sheffield United",
-    "Atlético": "Atletico Madrid",
-    "Atletico": "Atletico Madrid",
-    "Athletic": "Athletic Club",
-    "Real Sociedad": "Real Sociedad",
-    "St. Pauli": "FC St. Pauli",
-    "PSG": "Paris Saint-Germain",
-    "St Mirren": "St. Mirren",
-    "Ross Co": "Ross County",
-    "Røde Stjerne": "FK Crvena Zvezda",
-    "Rode Stjerne": "FK Crvena Zvezda",
-    "Crvena Zvezda": "FK Crvena Zvezda",
-    "Fenerbahce": "Fenerbahçe",
-    "Galatasaray": "Galatasaray",
-    "Besiktas": "Beşiktaş",
-    "Malmo": "Malmö FF",
-    "Malmö": "Malmö FF",
-}
 
 # ─────────────────────────────────────────────
 # DATAHENTING: NORSK TIPPING TIPPEKUPONG
@@ -125,398 +74,20 @@ def prosesser_nt(json_data):
     return pd.DataFrame(kamper)
 
 # ─────────────────────────────────────────────
-# DATAHENTING: FOTMOB LIGASTATISTIKK
+# FOTMOB CACHED WRAPPERS
 # ─────────────────────────────────────────────
-
-def _parse_table_row(lag_stats, row, ttype):
-    """Parser en tabellrad fra FotMob og oppdaterer lag_stats."""
-    navn = row.get("name") or row.get("shortName", "")
-    if not navn:
-        return
-    if navn not in lag_stats:
-        lag_stats[navn] = {}
-
-    team_id = row.get("id")
-    if team_id:
-        lag_stats[navn]["team_id"] = team_id
-
-    spilt = int(row.get("played", 0) or 0)
-    scores_str = str(row.get("scoresStr", "0-0"))
-    parts = scores_str.split("-")
-    scoret = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else 0
-    innsl = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
-
-    if ttype == "home":
-        lag_stats[navn]["hjemme_spilt"] = spilt
-        lag_stats[navn]["hjemme_scoret"] = scoret
-        lag_stats[navn]["hjemme_innsluppet"] = innsl
-    elif ttype == "away":
-        lag_stats[navn]["borte_spilt"] = spilt
-        lag_stats[navn]["borte_scoret"] = scoret
-        lag_stats[navn]["borte_innsluppet"] = innsl
-    else:
-        lag_stats[navn]["totalt_spilt"] = spilt
 
 @st.cache_data(ttl=3600)
 def hent_fotmob_tabell(liga_id):
-    """Henter hjemme/borte-tabell fra FotMob, inkl. lag-ID-er og ligasnitt."""
-    try:
-        url = f"https://www.fotmob.com/api/leagues?id={liga_id}&tab=table&type=league&timeZone=Europe/Oslo"
-        r = requests.get(url, headers=FOTMOB_HEADERS, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-
-        lag_stats = {}
-        tabell_liste = data.get("table", [])
-        if not isinstance(tabell_liste, list):
-            tabell_liste = [tabell_liste]
-
-        for tabell in tabell_liste:
-            tabell_data = tabell.get("data", {})
-            # FotMob structure: data.table is a dict with keys "all", "home", "away"
-            inner_table = tabell_data.get("table", {})
-
-            # Samle alle tabell-dicts som inneholder {all, home, away}
-            table_dicts = []
-
-            if isinstance(inner_table, dict) and "all" in inner_table:
-                # Standard liga: data.table.{all, home, away}
-                table_dicts.append(inner_table)
-            elif tabell_data.get("tables"):
-                # Turneringer (CL/EL): data.tables[].table.{all, home, away}
-                for sub in tabell_data["tables"]:
-                    sub_tbl = sub.get("table", {})
-                    if isinstance(sub_tbl, dict) and "all" in sub_tbl:
-                        table_dicts.append(sub_tbl)
-
-            for tbl in table_dicts:
-                for ttype in ("all", "home", "away"):
-                    rows = tbl.get(ttype, [])
-                    if not isinstance(rows, list):
-                        continue
-                    for row in rows:
-                        _parse_table_row(lag_stats, row, ttype)
-
-        # Beregn ligasnitt
-        total_hjemme_scoret = 0
-        total_borte_scoret = 0
-        total_hjemme_kamper = 0
-        total_borte_kamper = 0
-        for stats in lag_stats.values():
-            hs = stats.get("hjemme_spilt", 0)
-            bs = stats.get("borte_spilt", 0)
-            total_hjemme_scoret += stats.get("hjemme_scoret", 0)
-            total_borte_scoret += stats.get("borte_scoret", 0)
-            total_hjemme_kamper += hs
-            total_borte_kamper += bs
-
-        league_avg_home = total_hjemme_scoret / max(total_hjemme_kamper, 1)
-        league_avg_away = total_borte_scoret / max(total_borte_kamper, 1)
-
-        return {
-            "teams": lag_stats,
-            "league_avg_home": round(league_avg_home, 3),
-            "league_avg_away": round(league_avg_away, 3),
-        }
-    except Exception:
-        return {}
-
-# ─────────────────────────────────────────────
-# DATAHENTING: FOTMOB LAGDATA (kamper + form)
-# ─────────────────────────────────────────────
+    return _hent_fotmob_tabell(liga_id)
 
 @st.cache_data(ttl=3600)
 def hent_fotmob_team(team_id):
-    """Henter lagets kamper og form fra FotMob."""
-    if not team_id:
-        return None
-    try:
-        url = f"https://www.fotmob.com/api/teams?id={team_id}"
-        r = requests.get(url, headers=FOTMOB_HEADERS, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-
-        result = {"team_id": team_id, "fixtures": [], "form": []}
-
-        # Hent alle kamper
-        fixtures_data = data.get("fixtures", {})
-        all_fixtures = fixtures_data.get("allFixtures", {}).get("fixtures", [])
-        for fx in all_fixtures:
-            status = fx.get("status", {})
-            if not status.get("finished", False):
-                continue
-            home = fx.get("home", {})
-            away = fx.get("away", {})
-            home_score = home.get("score")
-            away_score = away.get("score")
-            if home_score is None or away_score is None:
-                continue
-            try:
-                home_goals = int(home_score)
-                away_goals = int(away_score)
-            except (ValueError, TypeError):
-                continue
-
-            result["fixtures"].append({
-                "home_id": home.get("id"),
-                "home_name": home.get("name", ""),
-                "away_id": away.get("id"),
-                "away_name": away.get("name", ""),
-                "home_goals": home_goals,
-                "away_goals": away_goals,
-                "is_home": home.get("id") == team_id,
-            })
-
-        # Hent form (siste 5)
-        overview = data.get("overview", {})
-        team_form = overview.get("teamForm", [])
-        for tf in team_form:
-            result_str = tf.get("resultString", "")  # W/D/L
-            score = tf.get("score", "")
-            tooltip = tf.get("tooltipText", {})
-            # Bestem opponent og hjemme/borte fra tooltip
-            if tooltip.get("homeTeamId") == team_id:
-                opponent = tooltip.get("awayTeam", "")
-                is_home = True
-            else:
-                opponent = tooltip.get("homeTeam", "")
-                is_home = False
-            result["form"].append({
-                "result": result_str,
-                "score": score,
-                "opponent": opponent,
-                "is_home": is_home,
-            })
-
-        return result
-    except Exception:
-        return None
-
-# ─────────────────────────────────────────────
-# DATAHENTING: FOTMOB xG-DATA
-# ─────────────────────────────────────────────
+    return _hent_fotmob_team(team_id)
 
 @st.cache_data(ttl=3600)
 def hent_fotmob_xg(liga_id):
-    """Henter xG-data fra FotMob stats-endepunkt. Returnerer dict: lagnavn → xG per kamp."""
-    try:
-        url = f"https://www.fotmob.com/api/leagues?id={liga_id}&tab=stats&type=league&timeZone=Europe/Oslo"
-        r = requests.get(url, headers=FOTMOB_HEADERS, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-
-        team_stats = data.get("stats", {}).get("teams", [])
-        xg_data = {}
-
-        for category in team_stats:
-            header = category.get("header", "").lower()
-            if "expected goals" in header and "conceded" not in header and "difference" not in header:
-                # fetchAllUrl er på category-nivå
-                fetch_url = category.get("fetchAllUrl", "")
-                if fetch_url:
-                    xg_r = requests.get(fetch_url, headers=FOTMOB_HEADERS, timeout=10)
-                    if xg_r.status_code == 200:
-                        xg_json = xg_r.json()
-                        top_lists = xg_json.get("TopLists", [])
-                        if top_lists:
-                            for entry in top_lists[0].get("StatList", []):
-                                team_name = entry.get("ParticipantName", "")
-                                xg_val = entry.get("StatValue")
-                                matches = entry.get("MatchesPlayed", 1)
-                                if xg_val is not None and team_name:
-                                    try:
-                                        # Konverter til xG per kamp
-                                        xg_data[team_name] = float(xg_val) / max(int(matches), 1)
-                                    except (ValueError, TypeError):
-                                        pass
-                break
-
-        return xg_data
-    except Exception:
-        return {}
-
-# ─────────────────────────────────────────────
-# LAG-ID-MAPPING (NT-NAVN → FOTMOB)
-# ─────────────────────────────────────────────
-
-def _normalize(s):
-    """Fjerner diakritiske tegn og gjør lowercase for fuzzy matching."""
-    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii").lower()
-
-def resolve_team(lag_stats, lagnavn):
-    """Finner lag i FotMob-tabellen basert på NT-navnet.
-    Returnerer (fotmob_navn, stats_dict) eller (None, None)."""
-    if not lag_stats:
-        return None, None
-
-    # Sjekk override først
-    override = TEAM_NAME_OVERRIDES.get(lagnavn, lagnavn)
-
-    # Eksakt match
-    if override in lag_stats:
-        return override, lag_stats[override]
-
-    # Eksakt match med original
-    if lagnavn in lag_stats:
-        return lagnavn, lag_stats[lagnavn]
-
-    # Substring-match (case-insensitive)
-    l = override.lower()
-    for k, v in lag_stats.items():
-        if l in k.lower() or k.lower() in l:
-            return k, v
-
-    # Unicode-normalisert match (fjerner ç→c, ö→o, etc.)
-    l_norm = _normalize(override)
-    for k, v in lag_stats.items():
-        k_norm = _normalize(k)
-        if l_norm in k_norm or k_norm in l_norm:
-            return k, v
-
-    # Første ord
-    første_ord = l_norm.split()[0] if l_norm.split() else ""
-    if første_ord and len(første_ord) > 2:
-        for k, v in lag_stats.items():
-            if første_ord in _normalize(k):
-                return k, v
-
-    return None, None
-
-# ─────────────────────────────────────────────
-# DYP POISSON-MODELL
-# ─────────────────────────────────────────────
-
-def beregn_styrke(h_stats, b_stats, league_avg_home, league_avg_away):
-    """Beregner attack/defense strength ratios for hjemme- og bortelag."""
-    h_spilt = max(h_stats.get("hjemme_spilt", 0), 1)
-    b_spilt = max(b_stats.get("borte_spilt", 0), 1)
-
-    home_attack = (h_stats.get("hjemme_scoret", 0) / h_spilt) / max(league_avg_home, 0.5)
-    home_defense = (h_stats.get("hjemme_innsluppet", 0) / h_spilt) / max(league_avg_away, 0.5)
-    away_attack = (b_stats.get("borte_scoret", 0) / b_spilt) / max(league_avg_away, 0.5)
-    away_defense = (b_stats.get("borte_innsluppet", 0) / b_spilt) / max(league_avg_home, 0.5)
-
-    return {
-        "home_attack": round(home_attack, 3),
-        "home_defense": round(home_defense, 3),
-        "away_attack": round(away_attack, 3),
-        "away_defense": round(away_defense, 3),
-    }
-
-def beregn_form_styrke(fixtures, team_id, is_home_team):
-    """Beregner styrke basert på siste 10 relevante kamper (hjemme eller borte)."""
-    if not fixtures:
-        return None
-
-    relevante = []
-    for fx in reversed(fixtures):  # nyeste først
-        if is_home_team and fx["is_home"]:
-            relevante.append(fx)
-        elif not is_home_team and not fx["is_home"]:
-            relevante.append(fx)
-        if len(relevante) >= 10:
-            break
-
-    if len(relevante) < 3:
-        return None
-
-    scoret = sum(fx["home_goals"] if fx["is_home"] else fx["away_goals"] for fx in relevante)
-    innsluppet = sum(fx["away_goals"] if fx["is_home"] else fx["home_goals"] for fx in relevante)
-
-    return {
-        "kamper": len(relevante),
-        "scoret_snitt": round(scoret / len(relevante), 3),
-        "innsluppet_snitt": round(innsluppet / len(relevante), 3),
-    }
-
-def beregn_dyp_poisson(h_stats, b_stats, league_avg_home, league_avg_away,
-                        h_form=None, b_form=None, h_xg=None, b_xg=None):
-    """
-    Dyp Poisson-modell med styrkeratings, form-vekting og valgfri xG-justering.
-    Returnerer dict med sannsynligheter, forventede mål, topp-resultater og modellnivå.
-    """
-    try:
-        styrke = beregn_styrke(h_stats, b_stats, league_avg_home, league_avg_away)
-
-        # Sesongbasert lambda
-        lambda_h_season = styrke["home_attack"] * styrke["away_defense"] * league_avg_home
-        lambda_b_season = styrke["away_attack"] * styrke["home_defense"] * league_avg_away
-
-        modell_nivaa = "Basis (sesongsnitt)"
-
-        # Form-blending: 60% siste kamper, 40% sesongsnitt
-        lambda_h = lambda_h_season
-        lambda_b = lambda_b_season
-        if h_form and b_form:
-            lambda_h_form = h_form["scoret_snitt"] * (b_form["innsluppet_snitt"] / max(league_avg_home, 0.5))
-            lambda_b_form = b_form["scoret_snitt"] * (h_form["innsluppet_snitt"] / max(league_avg_away, 0.5))
-            lambda_h = 0.4 * lambda_h_season + 0.6 * lambda_h_form
-            lambda_b = 0.4 * lambda_b_season + 0.6 * lambda_b_form
-            modell_nivaa = "Dyp (form)"
-
-        # xG-justering: 30% xG, 70% mål-basert
-        if h_xg is not None and b_xg is not None:
-            h_spilt = max(h_stats.get("hjemme_spilt", 0) + h_stats.get("borte_spilt", 0), 1)
-            b_spilt = max(b_stats.get("hjemme_spilt", 0) + b_stats.get("borte_spilt", 0), 1)
-            # xG er typisk totalt per kamp, bruk som justering
-            xg_h_factor = h_xg / max(league_avg_home + league_avg_away, 1) * 2
-            xg_b_factor = b_xg / max(league_avg_home + league_avg_away, 1) * 2
-            lambda_h = 0.7 * lambda_h + 0.3 * (xg_h_factor * league_avg_home)
-            lambda_b = 0.7 * lambda_b + 0.3 * (xg_b_factor * league_avg_away)
-            modell_nivaa = "Dyp (form+xG)"
-
-        # Clamp
-        lambda_h = max(0.2, min(lambda_h, 6.0))
-        lambda_b = max(0.2, min(lambda_b, 6.0))
-
-        # Poisson-grid
-        max_maal = 8
-        score_matrise = np.zeros((max_maal + 1, max_maal + 1))
-        for i in range(max_maal + 1):
-            for j in range(max_maal + 1):
-                score_matrise[i][j] = poisson.pmf(i, lambda_h) * poisson.pmf(j, lambda_b)
-
-        prob_h = np.sum(np.tril(score_matrise, -1))  # hjemmelag vinner: i > j
-        prob_u = np.sum(np.diag(score_matrise))
-        prob_b = np.sum(np.triu(score_matrise, 1))    # bortelag vinner: j > i
-
-        # Korreksjon: tril gir nedre trekant (i > j for rad > kol), men vi har [home][away]
-        # score_matrise[i][j] = P(home=i, away=j), så home wins when i > j
-        prob_h = 0.0
-        prob_u = 0.0
-        prob_b = 0.0
-        for i in range(max_maal + 1):
-            for j in range(max_maal + 1):
-                p = score_matrise[i][j]
-                if i > j:
-                    prob_h += p
-                elif i == j:
-                    prob_u += p
-                else:
-                    prob_b += p
-
-        total = prob_h + prob_u + prob_b
-
-        # Topp 3 mest sannsynlige resultater
-        flat = []
-        for i in range(max_maal + 1):
-            for j in range(max_maal + 1):
-                flat.append((i, j, score_matrise[i][j]))
-        flat.sort(key=lambda x: x[2], reverse=True)
-        topp_resultater = [(f"{r[0]}-{r[1]}", round(r[2] / total * 100, 1)) for r in flat[:3]]
-
-        return {
-            "H": round(prob_h / total * 100, 1),
-            "U": round(prob_u / total * 100, 1),
-            "B": round(prob_b / total * 100, 1),
-            "lambda_h": round(lambda_h, 2),
-            "lambda_b": round(lambda_b, 2),
-            "styrke": styrke,
-            "topp_resultater": topp_resultater,
-            "modell_nivaa": modell_nivaa,
-        }
-    except Exception:
-        return None
+    return _hent_fotmob_xg(liga_id)
 
 # ─────────────────────────────────────────────
 # INNBYRDES HISTORIKK (H2H)
@@ -721,7 +292,7 @@ def lagre_kupong_til_sheets(analyse_resultater):
             if pr:
                 avvik = {"H": pr["H"] - folk_h, "U": pr["U"] - folk_u, "B": pr["B"] - folk_b}
                 beste = max(avvik, key=avvik.get)
-                if avvik[beste] > 8:
+                if avvik[beste] > value_threshold:
                     verdi_tips = beste
 
             max_avvik = round(a["max_poi_avvik"], 1)
@@ -944,6 +515,13 @@ if st.button("Oppdater alle data"):
 st.divider()
 
 # ─────────────────────────────────────────────
+# MODELLPARAMETRE
+# ─────────────────────────────────────────────
+
+model_params = st.session_state.get("model_params", DEFAULT_PARAMS)
+value_threshold = model_params.get("value_threshold_pp", DEFAULT_PARAMS["value_threshold_pp"])
+
+# ─────────────────────────────────────────────
 # BEREGN ANALYSE FOR ALLE KAMPER
 # ─────────────────────────────────────────────
 
@@ -972,10 +550,12 @@ for _, rad in df_vis.iterrows():
     b_team_data = team_data_cache.get(b_team_id) if b_team_id else None
 
     h_form = beregn_form_styrke(
-        h_team_data["fixtures"] if h_team_data else None, h_team_id, True
+        h_team_data["fixtures"] if h_team_data else None, h_team_id, True,
+        form_window=model_params.get("form_window", DEFAULT_PARAMS["form_window"]),
     ) if h_team_data else None
     b_form = beregn_form_styrke(
-        b_team_data["fixtures"] if b_team_data else None, b_team_id, False
+        b_team_data["fixtures"] if b_team_data else None, b_team_id, False,
+        form_window=model_params.get("form_window", DEFAULT_PARAMS["form_window"]),
     ) if b_team_data else None
 
     # xG
@@ -996,6 +576,7 @@ for _, rad in df_vis.iterrows():
         poisson_res = beregn_dyp_poisson(
             h_stats, b_stats, league_avg_home, league_avg_away,
             h_form, b_form, h_xg, b_xg,
+            params=model_params,
         )
         if poisson_res:
             modell_nivaa = poisson_res["modell_nivaa"]
@@ -1049,14 +630,29 @@ if sheets_available() and analyse_resultater:
         pass  # Stille — kupongen er allerede lagret
 
 # ─────────────────────────────────────────────
-# TABS: ANALYSE OG HISTORIKK
+# TABS: ANALYSE, HISTORIKK OG BACKTEST
 # ─────────────────────────────────────────────
 
+# Sjekk om backtest-resultater finnes
+_backtest_results_path = os.path.join(os.path.dirname(__file__) or ".", "backtest_results.json")
+_backtest_details_path = os.path.join(os.path.dirname(__file__) or ".", "backtest_details.csv")
+_has_backtest = os.path.exists(_backtest_results_path)
+
+tab_names = ["Analyse"]
 if sheets_available():
-    tab_analyse, tab_historikk = st.tabs(["Analyse", "Historikk"])
+    tab_names.append("Historikk")
+if _has_backtest:
+    tab_names.append("Backtest")
+
+if len(tab_names) > 1:
+    tabs = st.tabs(tab_names)
+    tab_analyse = tabs[0]
+    tab_historikk = tabs[tab_names.index("Historikk")] if "Historikk" in tab_names else None
+    tab_backtest = tabs[tab_names.index("Backtest")] if "Backtest" in tab_names else None
 else:
     tab_analyse = st.container()
     tab_historikk = None
+    tab_backtest = None
 
 # ═══════════════════════════════════════════════
 # ANALYSE-FANEN
@@ -1471,3 +1067,166 @@ if tab_historikk is not None:
                 # Ventende kamper
                 if not venter.empty:
                     st.caption(f"⏳ {len(venter)} kamper venter på resultater")
+
+# ═══════════════════════════════════════════════
+# BACKTEST-FANEN
+# ═══════════════════════════════════════════════
+
+if tab_backtest is not None:
+    with tab_backtest:
+        st.subheader("Backtest-resultater")
+
+        try:
+            with open(_backtest_results_path, "r", encoding="utf-8") as _f:
+                bt = json.load(_f)
+        except Exception as _e:
+            st.error(f"Kunne ikke lese backtest-resultater: {_e}")
+            bt = None
+
+        if bt:
+            # Note
+            if bt.get("note"):
+                st.info(bt["note"])
+
+            # ─── Sammendrag: Standard vs Optimale parametre ───
+            st.markdown("#### Parametersammenligning")
+
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                st.markdown("**Standard parametre**")
+                for k, v in bt.get("default_params", {}).items():
+                    st.text(f"  {k}: {v}")
+            with pc2:
+                st.markdown("**Optimale parametre**")
+                for k, v in bt.get("best_params", {}).items():
+                    default_v = bt.get("default_params", {}).get(k)
+                    marker = " *" if v != default_v else ""
+                    st.text(f"  {k}: {v}{marker}")
+
+            st.divider()
+
+            # ─── Metrics side-by-side ───
+            st.markdown("#### Modellytelse")
+
+            def _fmt_metrics(m):
+                return {
+                    "Accuracy": f"{m.get('accuracy', '?')}%",
+                    "Log-loss": str(m.get('log_loss', '?')),
+                    "Brier score": str(m.get('brier', '?')),
+                    "Kamper": str(m.get('n', '?')),
+                }
+
+            metrics_df = pd.DataFrame({
+                "Metrikk": ["Accuracy", "Log-loss", "Brier score", "Kamper"],
+                "Standard (train)": list(_fmt_metrics(bt.get("default_train_metrics", {})).values()),
+                "Standard (test)": list(_fmt_metrics(bt.get("default_test_metrics", {})).values()),
+                "Optimal (train)": list(_fmt_metrics(bt.get("best_train_metrics", {})).values()),
+                "Optimal (test)": list(_fmt_metrics(bt.get("best_test_metrics", {})).values()),
+            })
+            st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # ─── Per-liga resultater ───
+            st.markdown("#### Per-liga resultater")
+            per_liga_best = bt.get("per_liga_best", {})
+            per_liga_default = bt.get("per_liga_default", {})
+
+            liga_rows = []
+            for liga in sorted(set(list(per_liga_best.keys()) + list(per_liga_default.keys()))):
+                best_m = per_liga_best.get(liga, {})
+                def_m = per_liga_default.get(liga, {})
+                liga_rows.append({
+                    "Liga": liga,
+                    "Kamper": best_m.get("n", def_m.get("n", 0)),
+                    "Standard acc": f"{def_m.get('accuracy', '?')}%",
+                    "Optimal acc": f"{best_m.get('accuracy', '?')}%",
+                    "Standard log-loss": def_m.get("log_loss", "?"),
+                    "Optimal log-loss": best_m.get("log_loss", "?"),
+                })
+            if liga_rows:
+                st.dataframe(pd.DataFrame(liga_rows), use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # ─── Parametersensitivitet ───
+            st.markdown("#### Parametersensitivitet")
+            sensitivity = bt.get("sensitivity", {})
+            for param_name, values in sensitivity.items():
+                if not values:
+                    continue
+                sens_df = pd.DataFrame({
+                    param_name: list(values.keys()),
+                    "Accuracy (%)": list(values.values()),
+                })
+                st.line_chart(sens_df.set_index(param_name), height=200)
+
+            st.divider()
+
+            # ─── Kalibrering ───
+            st.markdown("#### Kalibrering (predikert vs observert)")
+            calibration = bt.get("calibration", [])
+            if calibration:
+                cal_df = pd.DataFrame(calibration)
+                display_cal = cal_df[["bin", "avg_predicted", "avg_observed", "n"]].rename(columns={
+                    "bin": "Bin",
+                    "avg_predicted": "Predikert %",
+                    "avg_observed": "Observert %",
+                    "n": "Antall",
+                })
+                st.dataframe(display_cal, use_container_width=True, hide_index=True)
+
+                # Kalibreringsgraf
+                chart_cal = cal_df[["avg_predicted", "avg_observed"]].rename(columns={
+                    "avg_predicted": "Predikert",
+                    "avg_observed": "Observert",
+                })
+                st.line_chart(chart_cal, height=300)
+
+            st.divider()
+
+            # ─── Kampdetaljer ───
+            st.markdown("#### Kampdetaljer (backtest)")
+            if os.path.exists(_backtest_details_path):
+                try:
+                    details_df = pd.read_csv(_backtest_details_path)
+                    # Filtre
+                    bt_liga_filter = st.multiselect(
+                        "Filtrer per liga",
+                        options=sorted(details_df["liga"].unique()),
+                        default=sorted(details_df["liga"].unique()),
+                        key="bt_liga",
+                    )
+                    bt_correct_filter = st.radio(
+                        "Vis", ["Alle", "Korrekte", "Feil"],
+                        horizontal=True, key="bt_correct",
+                    )
+                    filtered = details_df[details_df["liga"].isin(bt_liga_filter)]
+                    if bt_correct_filter == "Korrekte":
+                        filtered = filtered[filtered["correct"] == True]
+                    elif bt_correct_filter == "Feil":
+                        filtered = filtered[filtered["correct"] == False]
+
+                    st.dataframe(filtered, use_container_width=True, hide_index=True)
+                    st.caption(f"Viser {len(filtered)} av {len(details_df)} kamper")
+                except Exception as _e:
+                    st.warning(f"Kunne ikke lese detaljer: {_e}")
+            else:
+                st.info("Ingen detaljfil funnet. Kjør `python backtest.py` for å generere.")
+
+            st.divider()
+
+            # ─── Bruk optimale parametre ───
+            st.markdown("#### Bruk optimale parametre")
+            using_optimal = st.session_state.get("model_params") == bt.get("best_params")
+            if using_optimal:
+                st.success("Optimale parametre er aktive i analysen")
+                if st.button("Tilbakestill til standard"):
+                    if "model_params" in st.session_state:
+                        del st.session_state["model_params"]
+                    st.rerun()
+            else:
+                st.info("Analysen bruker standard parametre")
+                if st.button("Bruk optimale parametre"):
+                    st.session_state["model_params"] = bt["best_params"]
+                    st.rerun()

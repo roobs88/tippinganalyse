@@ -1,3 +1,6 @@
 .streamlit/secrets.toml
 __pycache__/
 *.pyc
+backtest_cache/
+backtest_results.json
+backtest_details.csv
