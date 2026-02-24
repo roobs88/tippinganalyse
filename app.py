@@ -5,6 +5,7 @@ from datetime import datetime, date
 import numpy as np
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import gspread
@@ -200,6 +201,185 @@ def modell_nivaa_badge(nivaa):
     )
 
 # ─────────────────────────────────────────────
+# SPILLFORSLAG
+# ─────────────────────────────────────────────
+
+SPILLFORSLAG_PROFILER = [
+    {"navn": "Lite", "rader": 72, "pris": 72},
+    {"navn": "Middels", "rader": 256, "pris": 256},
+    {"navn": "Stort", "rader": 384, "pris": 384},
+]
+
+
+def generer_spillforslag(analyse_resultater, maal_rader):
+    """Genererer spillforslag for en gitt budsjettgrense (maks rader).
+
+    Algoritme:
+    1. Klassifiser hver kamp: ønsket antall tegn (1/2/3) + hvilke tegn
+    2. Optimaliser: juster opp/ned garderinger så produktet ≤ maal_rader
+    3. Prioriter: helgarder usikre kamper, singel på sikre verdikamper
+
+    Returns: (forslag_liste, faktisk_rader)
+    """
+    n = len(analyse_resultater)
+    if n == 0:
+        return [], 0
+
+    # ── Steg 1: Analyser hver kamp ──
+    kamper = []
+    for i, a in enumerate(analyse_resultater):
+        pr = a["poisson_res"]
+        folk_h, folk_u, folk_b = a["folk_h"], a["folk_u"], a["folk_b"]
+
+        if pr:
+            probs = {"H": pr["H"], "U": pr["U"], "B": pr["B"]}
+            avvik = {"H": pr["H"] - folk_h, "U": pr["U"] - folk_u, "B": pr["B"] - folk_b}
+        else:
+            probs = {"H": folk_h, "U": folk_u, "B": folk_b}
+            avvik = {"H": 0, "U": 0, "B": 0}
+
+        # Sortér utfall: mest sannsynlig først
+        sortert = sorted(probs.items(), key=lambda x: -x[1])
+        topp_prob = sortert[0][1]
+        nest_prob = sortert[1][1]
+        confidence = topp_prob - nest_prob
+        max_avvik = max(avvik.values())
+        max_neg_avvik = min(avvik.values())
+        value_spread = max_avvik - max_neg_avvik
+
+        # Klassifisér ønsket gardering
+        if topp_prob >= 60 and confidence >= 20:
+            onsket = 1  # Svært sikker → singel
+        elif topp_prob >= 45 and confidence >= 10:
+            onsket = 1  # Ganske sikker → singel
+        elif confidence <= 5 or (topp_prob < 38):
+            onsket = 3  # Svært jevn → trippel
+        else:
+            onsket = 2  # Middels → dobbel
+
+        # Velg tegn i prioritert rekkefølge
+        # Primært: høyest modell-sannsynlighet
+        # Sekundært: best verdi (størst positivt avvik mot folk) — spill mot folket!
+        # Tertiært: gjenværende utfall
+        primaer = sortert[0][0]
+        andre = [s for s in sortert[1:]]
+        # Blant de to resterende: velg den med størst verdi (avvik) som sekundær
+        andre_med_verdi = sorted(andre, key=lambda x: -avvik[x[0]])
+        sekundaer = andre_med_verdi[0][0]
+        tertiaer = andre_med_verdi[1][0]
+
+        # Hvis sekundær har mye bedre verdi enn primær, og primær er usikker,
+        # kan vi bytte rekkefølge for singel-tegn (spill verdi!)
+        singel_tegn = primaer
+        if avvik[sekundaer] > avvik[primaer] + 8 and probs[sekundaer] >= 25:
+            singel_tegn = sekundaer  # Verdi-spill: velg det undertippede utfallet
+
+        # Begrunnelse
+        if onsket == 1:
+            if avvik[singel_tegn] > 5:
+                begrunnelse = f"Sikker + verdi på {singel_tegn} ({avvik[singel_tegn]:+.0f}pp vs folk)"
+            elif confidence >= 20:
+                begrunnelse = f"Klar favoritt ({primaer} {topp_prob:.0f}%)"
+            else:
+                begrunnelse = f"Modell-favoritt ({primaer} {topp_prob:.0f}%)"
+        elif onsket == 3:
+            begrunnelse = f"Svært jevn kamp — helgardert"
+        else:
+            if avvik[sekundaer] > 5:
+                begrunnelse = f"Verdi på {sekundaer} ({avvik[sekundaer]:+.0f}pp vs folk)"
+            elif confidence <= 8:
+                begrunnelse = f"Usikker — gardert {primaer}+{sekundaer}"
+            else:
+                begrunnelse = f"Gardert med {sekundaer} ({probs[sekundaer]:.0f}%)"
+
+        kamper.append({
+            "idx": i,
+            "probs": probs,
+            "avvik": avvik,
+            "confidence": confidence,
+            "value_spread": value_spread,
+            "topp_prob": topp_prob,
+            "onsket": onsket,
+            "primaer": primaer,
+            "sekundaer": sekundaer,
+            "tertiaer": tertiaer,
+            "singel_tegn": singel_tegn,
+            "begrunnelse": begrunnelse,
+            "har_modell": pr is not None,
+        })
+
+    # ── Steg 2: Finn eksakt fordeling av singler/dobler/tripler ──
+    # Finn beste kombinasjon av dobler (2) og tripler (3) slik at 2^d * 3^t = maal_rader
+    best_fordeling = (0, 0, 0)  # (produkt, antall_dobler, antall_tripler)
+    for tripler in range(min(n, 8) + 1):
+        for dobler in range(n - tripler + 1):
+            prod = (3 ** tripler) * (2 ** dobler)
+            if prod <= maal_rader and prod > best_fordeling[0]:
+                best_fordeling = (prod, dobler, tripler)
+            if prod > maal_rader:
+                break
+    faktisk_rader = best_fordeling[0]
+    antall_dobler = best_fordeling[1]
+    antall_tripler = best_fordeling[2]
+
+    # Ranger kamper: høy score = bør garderes (usikker + verdi-spredning)
+    gardering_rank = sorted(
+        range(n),
+        key=lambda j: -kamper[j]["confidence"] + kamper[j]["value_spread"] * 0.5,
+        reverse=True,
+    )
+
+    # Tildel: tripler til de som bør garderes mest, dobler til neste, resten singler
+    tegn_per_kamp = [1] * n
+    for rank, j in enumerate(gardering_rank):
+        if rank < antall_tripler:
+            tegn_per_kamp[j] = 3
+        elif rank < antall_tripler + antall_dobler:
+            tegn_per_kamp[j] = 2
+
+    # ── Steg 3: Bygg forslag med valgte tegn og begrunnelse ──
+    forslag = []
+    for j, k in enumerate(kamper):
+        ant = tegn_per_kamp[j]
+        avvik = k["avvik"]
+        if ant == 1:
+            tegn_str = k["singel_tegn"]
+            type_str = "singel"
+            av = avvik.get(tegn_str, 0)
+            if av > 5:
+                begrunnelse = f"Sikker + verdi på {tegn_str} ({av:+.0f}pp vs folk)"
+            elif k["confidence"] >= 20:
+                begrunnelse = f"Klar favoritt ({k['primaer']} {k['topp_prob']:.0f}%)"
+            else:
+                begrunnelse = f"Modell-favoritt ({k['primaer']} {k['topp_prob']:.0f}%)"
+        elif ant == 2:
+            tegn_str = "".join(sorted([k["primaer"], k["sekundaer"]], key="HUB".index))
+            type_str = "dobbel"
+            sek = k["sekundaer"]
+            av_sek = avvik.get(sek, 0)
+            if av_sek > 5:
+                begrunnelse = f"Verdi på {sek} ({av_sek:+.0f}pp vs folk)"
+            elif k["confidence"] <= 8:
+                begrunnelse = f"Jevn kamp — gardert {k['primaer']}+{sek}"
+            else:
+                begrunnelse = f"Gardert med {sek} ({k['probs'][sek]:.0f}%)"
+        else:
+            tegn_str = "HUB"
+            type_str = "trippel"
+            begrunnelse = f"Svært jevn kamp — helgardert"
+
+        forslag.append({
+            "tegn": tegn_str,
+            "type": type_str,
+            "begrunnelse": begrunnelse,
+            "probs": k["probs"],
+            "avvik": k["avvik"],
+        })
+
+    return forslag, faktisk_rader
+
+
+# ─────────────────────────────────────────────
 # GOOGLE SHEETS — HISTORIKK
 # ─────────────────────────────────────────────
 
@@ -232,7 +412,8 @@ def get_historikk_sheet():
         ws = sh.add_worksheet(title="Historikk", rows=1000, cols=30)
 
     # Opprett header hvis arket er tomt
-    if not ws.row_values(1):
+    existing_headers = ws.row_values(1)
+    if not existing_headers:
         headers = [
             "kupong_id", "dato", "dag", "hjemmelag", "bortelag", "liga",
             "h_team_id", "b_team_id",
@@ -243,12 +424,27 @@ def get_historikk_sheet():
             "resultat_h_maal", "resultat_b_maal", "resultat",
             "modell_korrekt", "verdi_korrekt", "folk_korrekt",
             "lagret_tidspunkt",
+            "spill_lite", "spill_medium", "spill_stor",
+            "spill_lite_korrekt", "spill_medium_korrekt", "spill_stor_korrekt",
         ]
         ws.append_row(headers)
+    else:
+        # Migrer: legg til spillforslag-kolonner hvis de mangler
+        spill_headers = [
+            "spill_lite", "spill_medium", "spill_stor",
+            "spill_lite_korrekt", "spill_medium_korrekt", "spill_stor_korrekt",
+        ]
+        missing = [h for h in spill_headers if h not in existing_headers]
+        if missing:
+            start_col = len(existing_headers) + 1
+            for j, h in enumerate(missing):
+                ws.update_cell(1, start_col + j, h)
     return ws
 
-def lagre_kupong_til_sheets(analyse_resultater):
-    """Lagrer kupong til Google Sheets. Returnerer (antall_lagret, allerede_lagret)."""
+def lagre_kupong_til_sheets(analyse_resultater, spillforslag=None):
+    """Lagrer kupong til Google Sheets. Returnerer (antall_lagret, allerede_lagret).
+    spillforslag: dict med nøkler 'lite', 'medium', 'stor' → list of forslag-dicts.
+    """
     if not sheets_available() or not analyse_resultater:
         return 0, False
 
@@ -270,7 +466,7 @@ def lagre_kupong_til_sheets(analyse_resultater):
         # Bygg rader
         nå = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         rader = []
-        for a in analyse_resultater:
+        for i, a in enumerate(analyse_resultater):
             rad = a["rad"]
             pr = a["poisson_res"]
             folk_h, folk_u, folk_b = a["folk_h"], a["folk_u"], a["folk_b"]
@@ -300,6 +496,21 @@ def lagre_kupong_til_sheets(analyse_resultater):
             # Folk-favoritt
             folk_fav = max({"H": folk_h, "U": folk_u, "B": folk_b}, key={"H": folk_h, "U": folk_u, "B": folk_b}.get)
 
+            # Spillforslag-tegn for denne kampen
+            sf_lite = ""
+            sf_medium = ""
+            sf_stor = ""
+            if spillforslag:
+                sf_l = spillforslag.get("lite", [])
+                sf_m = spillforslag.get("medium", [])
+                sf_s = spillforslag.get("stor", [])
+                if i < len(sf_l) and sf_l[i]:
+                    sf_lite = sf_l[i]["tegn"]
+                if i < len(sf_m) and sf_m[i]:
+                    sf_medium = sf_m[i]["tegn"]
+                if i < len(sf_s) and sf_s[i]:
+                    sf_stor = sf_s[i]["tegn"]
+
             rader.append([
                 kupong_id, rad["Dato"], rad["Dag"],
                 rad["Hjemmelag"], rad["Bortelag"], rad["Liga"],
@@ -311,6 +522,8 @@ def lagre_kupong_til_sheets(analyse_resultater):
                 "", "", "",  # resultat_h_maal, resultat_b_maal, resultat
                 "", "", "",  # modell_korrekt, verdi_korrekt, folk_korrekt
                 nå,
+                sf_lite, sf_medium, sf_stor,
+                "", "", "",  # spill_lite/medium/stor_korrekt
             ])
 
         if rader:
@@ -401,6 +614,19 @@ def oppdater_resultater():
                         "range": f"U{row_num}:Z{row_num}",
                         "values": [[str(hm), str(bm), res, modell_korrekt, verdi_korrekt, folk_korrekt]],
                     })
+
+                    # Spillforslag-korrekthet (kolonner AD-AF)
+                    spill_lite = str(row.get("spill_lite", ""))
+                    spill_medium = str(row.get("spill_medium", ""))
+                    spill_stor = str(row.get("spill_stor", ""))
+                    if spill_lite or spill_medium or spill_stor:
+                        sl_ok = "true" if res in spill_lite else "false" if spill_lite else ""
+                        sm_ok = "true" if res in spill_medium else "false" if spill_medium else ""
+                        ss_ok = "true" if res in spill_stor else "false" if spill_stor else ""
+                        batch_updates.append({
+                            "range": f"AD{row_num}:AF{row_num}",
+                            "values": [[sl_ok, sm_ok, ss_ok]],
+                        })
                     oppdatert += 1
                     break
 
@@ -438,14 +664,19 @@ team_data_cache = {}   # team_id → team data
 ligaer = df[df["FotmobLigaId"].notna()]["Liga"].unique()
 if len(ligaer) > 0:
     with st.spinner("Henter lagstatistikk fra FotMob..."):
-        for liga in ligaer:
+        # Parallell henting av ligatabell + xG
+        def _hent_liga(liga):
             lid = FOTMOB_LIGA_IDS.get(liga)
-            if lid:
-                data = hent_fotmob_tabell(lid)
+            if not lid:
+                return liga, None, None
+            data = hent_fotmob_tabell(lid)
+            xg = hent_fotmob_xg(lid)
+            return liga, data, xg
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            for liga, data, xg in pool.map(_hent_liga, ligaer):
                 if data and data.get("teams"):
                     liga_data_cache[liga] = data
-                # Hent xG (valgfritt, feiler stille)
-                xg = hent_fotmob_xg(lid)
                 if xg:
                     xg_cache[liga] = xg
 
@@ -465,10 +696,14 @@ if len(ligaer) > 0:
 
     if needed_teams:
         with st.spinner(f"Henter detaljert lagdata for {len(needed_teams)} lag..."):
-            for tid in needed_teams:
-                td = hent_fotmob_team(tid)
-                if td:
-                    team_data_cache[tid] = td
+            # Parallell henting av lagdata — største flaskehals
+            def _hent_team(tid):
+                return tid, hent_fotmob_team(tid)
+
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                for tid, td in pool.map(_hent_team, needed_teams):
+                    if td:
+                        team_data_cache[tid] = td
 
     if liga_data_cache:
         st.success(f"Hentet statistikk for {len(liga_data_cache)} ligaer fra FotMob")
@@ -619,11 +854,29 @@ for _, rad in df_vis.iterrows():
     })
 
 # ─────────────────────────────────────────────
+# GENERER SPILLFORSLAG
+# ─────────────────────────────────────────────
+
+spillforslag_alle = {}
+for profil in SPILLFORSLAG_PROFILER:
+    forslag, rader = generer_spillforslag(analyse_resultater, profil["rader"])
+    spillforslag_alle[profil["navn"].lower()] = {
+        "forslag": forslag,
+        "rader": rader,
+        "profil": profil,
+    }
+
+# ─────────────────────────────────────────────
 # LAGRE KUPONG AUTOMATISK
 # ─────────────────────────────────────────────
 
 if sheets_available() and analyse_resultater:
-    antall, duplikat = lagre_kupong_til_sheets(analyse_resultater)
+    sf_for_lagring = {
+        "lite": spillforslag_alle.get("lite", {}).get("forslag", []),
+        "medium": spillforslag_alle.get("middels", {}).get("forslag", []),
+        "stor": spillforslag_alle.get("stort", {}).get("forslag", []),
+    }
+    antall, duplikat = lagre_kupong_til_sheets(analyse_resultater, sf_for_lagring)
     if antall > 0:
         st.toast(f"Kupong lagret til historikk ({antall} kamper)")
     elif duplikat:
@@ -638,21 +891,17 @@ _backtest_results_path = os.path.join(os.path.dirname(__file__) or ".", "backtes
 _backtest_details_path = os.path.join(os.path.dirname(__file__) or ".", "backtest_details.csv")
 _has_backtest = os.path.exists(_backtest_results_path)
 
-tab_names = ["Analyse"]
+tab_names = ["Analyse", "Spillforslag"]
 if sheets_available():
     tab_names.append("Historikk")
 if _has_backtest:
     tab_names.append("Backtest")
 
-if len(tab_names) > 1:
-    tabs = st.tabs(tab_names)
-    tab_analyse = tabs[0]
-    tab_historikk = tabs[tab_names.index("Historikk")] if "Historikk" in tab_names else None
-    tab_backtest = tabs[tab_names.index("Backtest")] if "Backtest" in tab_names else None
-else:
-    tab_analyse = st.container()
-    tab_historikk = None
-    tab_backtest = None
+tabs = st.tabs(tab_names)
+tab_analyse = tabs[0]
+tab_spillforslag = tabs[1]
+tab_historikk = tabs[tab_names.index("Historikk")] if "Historikk" in tab_names else None
+tab_backtest = tabs[tab_names.index("Backtest")] if "Backtest" in tab_names else None
 
 # ═══════════════════════════════════════════════
 # ANALYSE-FANEN
@@ -889,6 +1138,129 @@ with tab_analyse:
     st.caption(f"Data: NT API + FotMob · Sist oppdatert: {datetime.now().strftime('%H:%M:%S')} · Dyp Poisson-modell: styrke + form + xG")
 
 # ═══════════════════════════════════════════════
+# SPILLFORSLAG-FANEN
+# ═══════════════════════════════════════════════
+
+def _kupong_html(forslag, analyse_resultater, profil_navn, faktisk_rader):
+    """Bygger HTML-kupong som ligner Norsk Tipping-kupongen."""
+    # Farger for markerte tegn
+    BG_MARK = "#1a6b3c"  # Grønn bakgrunn for valgte tegn
+    BG_VERDI = "#b8860b"  # Gull for verdi-tegn
+    TEXT_MARK = "white"
+
+    rows_html = ""
+    for i, (f, a) in enumerate(zip(forslag, analyse_resultater)):
+        if not f:
+            continue
+        rad = a["rad"]
+        tegn = f["tegn"]
+        avvik = f.get("avvik", {})
+
+        # H/U/B celler — marker valgte tegn
+        celler = ""
+        for utfall in ["H", "U", "B"]:
+            if utfall in tegn:
+                # Er dette et verdi-tegn? (positivt avvik > 5pp)
+                er_verdi = avvik.get(utfall, 0) > 5
+                bg = BG_VERDI if er_verdi else BG_MARK
+                celler += (
+                    f'<td style="background:{bg};color:{TEXT_MARK};'
+                    f'text-align:center;font-weight:bold;font-size:16px;'
+                    f'padding:6px 12px;border:1px solid #ddd">{utfall}</td>'
+                )
+            else:
+                celler += (
+                    '<td style="text-align:center;color:#ccc;padding:6px 12px;'
+                    'border:1px solid #eee;font-size:14px">·</td>'
+                )
+
+        # Type badge
+        type_colors = {"singel": "#6b7280", "dobbel": "#2563eb", "trippel": "#dc2626"}
+        tc = type_colors.get(f["type"], "#6b7280")
+        type_badge = (
+            f'<span style="background:{tc};color:white;padding:1px 8px;'
+            f'border-radius:8px;font-size:11px">{f["type"].capitalize()}</span>'
+        )
+
+        rows_html += (
+            f'<tr>'
+            f'<td style="padding:6px 8px;border:1px solid #eee;font-size:13px">'
+            f'{i+1}. {rad["Kamp"]}</td>'
+            f'{celler}'
+            f'<td style="padding:6px 8px;border:1px solid #eee;text-align:center">{type_badge}</td>'
+            f'<td style="padding:6px 8px;border:1px solid #eee;font-size:12px;color:#666">'
+            f'{f["begrunnelse"]}</td>'
+            f'</tr>'
+        )
+
+    return f"""
+    <table style="width:100%;border-collapse:collapse;margin:8px 0">
+    <thead>
+    <tr style="background:#f3f4f6">
+        <th style="text-align:left;padding:8px;border:1px solid #ddd;min-width:200px">Kamp</th>
+        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:45px">H</th>
+        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:45px">U</th>
+        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:45px">B</th>
+        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:80px">Type</th>
+        <th style="text-align:left;padding:8px;border:1px solid #ddd">Begrunnelse</th>
+    </tr>
+    </thead>
+    <tbody>
+    {rows_html}
+    </tbody>
+    </table>
+    """
+
+
+with tab_spillforslag:
+    st.subheader("Spillforslag")
+    st.caption(
+        "Systemforslag basert på Poisson-modellen. "
+        "Spiller mot folket der modellen ser verdi. "
+        "Pris = antall rekker × 1 kr."
+    )
+
+    # Forklaring fargekoder
+    st.markdown(
+        '<span style="display:inline-block;width:14px;height:14px;background:#1a6b3c;'
+        'border-radius:2px;vertical-align:middle"></span> Modell-valg &nbsp;&nbsp;'
+        '<span style="display:inline-block;width:14px;height:14px;background:#b8860b;'
+        'border-radius:2px;vertical-align:middle"></span> Verdi-spill (>5pp vs folk)',
+        unsafe_allow_html=True,
+    )
+    st.markdown("")
+
+    if not analyse_resultater:
+        st.info("Ingen kamper å lage forslag for.")
+    else:
+        for profil_key, sf_data in spillforslag_alle.items():
+            profil = sf_data["profil"]
+            forslag = sf_data["forslag"]
+            faktisk_rader = sf_data["rader"]
+
+            if not forslag:
+                continue
+
+            antall_singler = sum(1 for f in forslag if f and f["type"] == "singel")
+            antall_dobler = sum(1 for f in forslag if f and f["type"] == "dobbel")
+            antall_tripler = sum(1 for f in forslag if f and f["type"] == "trippel")
+
+            st.markdown(f"### {profil['navn']} spill — {faktisk_rader} rekker ({faktisk_rader} kr)")
+
+            # Nøkkeltall
+            kc1, kc2, kc3, kc4 = st.columns(4)
+            kc1.metric("Rekker", faktisk_rader)
+            kc2.metric("Singler", antall_singler)
+            kc3.metric("Dobler", antall_dobler)
+            kc4.metric("Tripler", antall_tripler)
+
+            # Kupong-tabell i HTML
+            html = _kupong_html(forslag, analyse_resultater, profil["navn"], faktisk_rader)
+            st.markdown(html, unsafe_allow_html=True)
+
+            st.divider()
+
+# ═══════════════════════════════════════════════
 # HISTORIKK-FANEN
 # ═══════════════════════════════════════════════
 
@@ -952,6 +1324,28 @@ if tab_historikk is not None:
                     m5.metric("Modell vs Folk", f"{'+' if modell_vs_folk > 0 else ''}{modell_vs_folk} kamper",
                               delta=f"{'+' if modell_vs_folk > 0 else ''}{modell_vs_folk}",
                               delta_color="normal")
+
+                    # Spillforslag-treffrate
+                    spill_cols = [
+                        ("spill_lite_korrekt", "Lite (72 kr)"),
+                        ("spill_medium_korrekt", "Medium (256 kr)"),
+                        ("spill_stor_korrekt", "Stort (384 kr)"),
+                    ]
+                    spill_stats = []
+                    for col_name, label in spill_cols:
+                        if col_name in har_resultat.columns:
+                            col_vals = har_resultat[col_name].astype(str)
+                            spill_n = col_vals.isin(["true", "false"]).sum()
+                            if spill_n > 0:
+                                spill_treff = (col_vals == "true").sum()
+                                spill_pct = round(spill_treff / spill_n * 100, 1)
+                                spill_stats.append((label, spill_treff, spill_n, spill_pct))
+
+                    if spill_stats:
+                        st.markdown("**Spillforslag-treffrate (per kamp)**")
+                        sp_cols = st.columns(len(spill_stats))
+                        for j, (label, treff, n_sp, pct) in enumerate(spill_stats):
+                            sp_cols[j].metric(label, f"{pct}% ({treff}/{n_sp})")
 
                     st.divider()
 
@@ -1087,6 +1481,11 @@ if tab_historikk is not None:
                                 except (ValueError, TypeError):
                                     avvik_str = "–"
 
+                                # Spillforslag-kolonner
+                                sl = str(row.get("spill_lite", "")) or "–"
+                                sm = str(row.get("spill_medium", "")) or "–"
+                                ss = str(row.get("spill_stor", "")) or "–"
+
                                 display_rows.append({
                                     "Kamp": kamp,
                                     "Liga": row.get("liga", ""),
@@ -1095,6 +1494,9 @@ if tab_historikk is not None:
                                     "Tips": row.get("modell_tips", ""),
                                     "Verdi": row.get("verdi_tips", "") or "–",
                                     "Avvik": avvik_str,
+                                    "Lite": sl,
+                                    "Med": sm,
+                                    "Stor": ss,
                                     "Resultat": res,
                                     "M": modell_ok,
                                     "F": folk_ok,
