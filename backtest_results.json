@@ -1,0 +1,272 @@
+{
+  "best_params": {
+    "form_weight": 0.4,
+    "form_window": 15,
+    "lambda_max": 5.0,
+    "lambda_min": 0.1,
+    "value_threshold_pp": 5,
+    "xg_weight": 0.0
+  },
+  "default_params": {
+    "form_weight": 0.6,
+    "form_window": 10,
+    "xg_weight": 0.3,
+    "value_threshold_pp": 8,
+    "lambda_min": 0.2,
+    "lambda_max": 6.0
+  },
+  "best_train_metrics": {
+    "accuracy": 46.2,
+    "log_loss": 1.0645,
+    "brier": 0.6425,
+    "n": 158,
+    "correct": 73
+  },
+  "best_test_metrics": {
+    "accuracy": 45.45,
+    "log_loss": 1.1421,
+    "brier": 0.6999,
+    "n": 22,
+    "correct": 10
+  },
+  "default_train_metrics": {
+    "accuracy": 44.3,
+    "log_loss": 1.0735,
+    "brier": 0.6489,
+    "n": 158,
+    "correct": 70
+  },
+  "default_test_metrics": {
+    "accuracy": 50.0,
+    "log_loss": 1.1336,
+    "brier": 0.6947,
+    "n": 22,
+    "correct": 11
+  },
+  "per_liga_best": {
+    "ENG Premier League": {
+      "accuracy": 52.5,
+      "log_loss": 1.0328,
+      "brier": 0.6172,
+      "n": 40,
+      "correct": 21
+    },
+    "ENG Championship": {
+      "accuracy": 40.0,
+      "log_loss": 1.0911,
+      "brier": 0.6624,
+      "n": 75,
+      "correct": 30
+    },
+    "SPA LaLiga": {
+      "accuracy": 42.86,
+      "log_loss": 1.0314,
+      "brier": 0.6191,
+      "n": 21,
+      "correct": 9
+    },
+    "ITA Serie A": {
+      "accuracy": 54.55,
+      "log_loss": 1.0316,
+      "brier": 0.6214,
+      "n": 22,
+      "correct": 12
+    },
+    "GER Bundesliga": {
+      "accuracy": 80.0,
+      "log_loss": 0.547,
+      "brier": 0.3044,
+      "n": 10,
+      "correct": 8
+    },
+    "FRA Ligue 1": {
+      "accuracy": 50.0,
+      "log_loss": 1.1771,
+      "brier": 0.7247,
+      "n": 8,
+      "correct": 4
+    },
+    "NOR Eliteserien": {
+      "accuracy": 0,
+      "log_loss": 999,
+      "brier": 999,
+      "n": 0
+    },
+    "SKO Premiership": {
+      "accuracy": 0,
+      "log_loss": 999,
+      "brier": 999,
+      "n": 0
+    },
+    "NED Eredivisie": {
+      "accuracy": 50.0,
+      "log_loss": 1.1073,
+      "brier": 0.6764,
+      "n": 14,
+      "correct": 7
+    }
+  },
+  "per_liga_default": {
+    "ENG Premier League": {
+      "accuracy": 50.0,
+      "log_loss": 1.0393,
+      "brier": 0.6225,
+      "n": 40,
+      "correct": 20
+    },
+    "ENG Championship": {
+      "accuracy": 40.0,
+      "log_loss": 1.1019,
+      "brier": 0.6727,
+      "n": 75,
+      "correct": 30
+    },
+    "SPA LaLiga": {
+      "accuracy": 47.62,
+      "log_loss": 1.0541,
+      "brier": 0.6326,
+      "n": 21,
+      "correct": 10
+    },
+    "ITA Serie A": {
+      "accuracy": 54.55,
+      "log_loss": 1.0268,
+      "brier": 0.6112,
+      "n": 22,
+      "correct": 12
+    },
+    "GER Bundesliga": {
+      "accuracy": 80.0,
+      "log_loss": 0.5625,
+      "brier": 0.3132,
+      "n": 10,
+      "correct": 8
+    },
+    "FRA Ligue 1": {
+      "accuracy": 50.0,
+      "log_loss": 1.1624,
+      "brier": 0.7124,
+      "n": 8,
+      "correct": 4
+    },
+    "NOR Eliteserien": {
+      "accuracy": 0,
+      "log_loss": 999,
+      "brier": 999,
+      "n": 0
+    },
+    "SKO Premiership": {
+      "accuracy": 0,
+      "log_loss": 999,
+      "brier": 999,
+      "n": 0
+    },
+    "NED Eredivisie": {
+      "accuracy": 50.0,
+      "log_loss": 1.1042,
+      "brier": 0.6763,
+      "n": 14,
+      "correct": 7
+    }
+  },
+  "calibration": [
+    {
+      "bin": "0-10%",
+      "avg_predicted": 6.3,
+      "avg_observed": 4.2,
+      "n": 24
+    },
+    {
+      "bin": "10-20%",
+      "avg_predicted": 15.8,
+      "avg_observed": 24.7,
+      "n": 93
+    },
+    {
+      "bin": "20-30%",
+      "avg_predicted": 25.0,
+      "avg_observed": 27.1,
+      "n": 188
+    },
+    {
+      "bin": "30-40%",
+      "avg_predicted": 34.5,
+      "avg_observed": 34.0,
+      "n": 100
+    },
+    {
+      "bin": "40-50%",
+      "avg_predicted": 44.4,
+      "avg_observed": 44.9,
+      "n": 69
+    },
+    {
+      "bin": "50-60%",
+      "avg_predicted": 54.6,
+      "avg_observed": 42.1,
+      "n": 38
+    },
+    {
+      "bin": "60-70%",
+      "avg_predicted": 64.4,
+      "avg_observed": 48.5,
+      "n": 33
+    },
+    {
+      "bin": "70-80%",
+      "avg_predicted": 75.1,
+      "avg_observed": 66.7,
+      "n": 18
+    },
+    {
+      "bin": "80-90%",
+      "avg_predicted": 83.2,
+      "avg_observed": 75.0,
+      "n": 4
+    },
+    {
+      "bin": "90-100%",
+      "avg_predicted": 93.7,
+      "avg_observed": 100.0,
+      "n": 3
+    }
+  ],
+  "sensitivity": {
+    "form_weight": {
+      "0.3": 44.94,
+      "0.4": 44.94,
+      "0.5": 44.94,
+      "0.6": 44.46,
+      "0.7": 44.15,
+      "0.8": 42.88
+    },
+    "form_window": {
+      "5": 43.36,
+      "8": 43.88,
+      "10": 44.41,
+      "15": 45.89
+    },
+    "xg_weight": {
+      "0.0": 44.38
+    },
+    "value_threshold_pp": {
+      "5": 44.38,
+      "6": 44.38,
+      "8": 44.38,
+      "10": 44.38,
+      "12": 44.38
+    },
+    "lambda_min": {
+      "0.1": 44.38,
+      "0.2": 44.38,
+      "0.3": 44.38
+    },
+    "lambda_max": {
+      "4.0": 44.38,
+      "5.0": 44.38,
+      "6.0": 44.38
+    }
+  },
+  "total_matches": 1960,
+  "note": "V1: Backtest uten xG (kun sesongaggregert, ikke per-kamp historisk)"
+}
