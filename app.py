@@ -1088,25 +1088,43 @@ if tab_backtest is not None:
             if bt.get("note"):
                 st.info(bt["note"])
 
+            # ─── Nøkkeltall øverst ───
+            bt_m1, bt_m2, bt_m3, bt_m4 = st.columns(4)
+            bt_m1.metric("Kamper evaluert", bt.get("best_train_metrics", {}).get("n", 0) + bt.get("best_test_metrics", {}).get("n", 0))
+            bt_m2.metric("Ligaer", len([l for l, m in bt.get("per_liga_best", {}).items() if m.get("n", 0) > 0]))
+            bt_m3.metric("Standard accuracy", f"{bt.get('default_train_metrics', {}).get('accuracy', '?')}%")
+            bt_m4.metric("Optimal accuracy", f"{bt.get('best_train_metrics', {}).get('accuracy', '?')}%",
+                         delta=f"{bt.get('best_train_metrics', {}).get('accuracy', 0) - bt.get('default_train_metrics', {}).get('accuracy', 0):+.1f}pp")
+
+            st.divider()
+
             # ─── Sammendrag: Standard vs Optimale parametre ───
             st.markdown("#### Parametersammenligning")
-
-            pc1, pc2 = st.columns(2)
-            with pc1:
-                st.markdown("**Standard parametre**")
-                for k, v in bt.get("default_params", {}).items():
-                    st.text(f"  {k}: {v}")
-            with pc2:
-                st.markdown("**Optimale parametre**")
-                for k, v in bt.get("best_params", {}).items():
-                    default_v = bt.get("default_params", {}).get(k)
-                    marker = " *" if v != default_v else ""
-                    st.text(f"  {k}: {v}{marker}")
+            _param_labels = {
+                "form_weight": "Form-vekt (vs sesong)",
+                "form_window": "Antall kamper i formvindu",
+                "xg_weight": "xG-vekt",
+                "value_threshold_pp": "Verdi-terskel (pp)",
+                "lambda_min": "Min forventet mål",
+                "lambda_max": "Maks forventet mål",
+            }
+            param_rows = []
+            for k in bt.get("default_params", {}):
+                std_v = bt["default_params"][k]
+                opt_v = bt.get("best_params", {}).get(k, std_v)
+                param_rows.append({
+                    "Parameter": _param_labels.get(k, k),
+                    "Standard": std_v,
+                    "Optimal (grid search)": opt_v,
+                    "Endret": "Ja" if std_v != opt_v else "",
+                })
+            st.dataframe(pd.DataFrame(param_rows), use_container_width=True, hide_index=True)
 
             st.divider()
 
             # ─── Metrics side-by-side ───
-            st.markdown("#### Modellytelse")
+            st.markdown("#### Modellytelse (train / test split)")
+            st.caption("Train = 70% av kampene (kronologisk), Test = siste 30%. Overfitting = god train, dårlig test.")
 
             def _fmt_metrics(m):
                 return {
@@ -1136,9 +1154,12 @@ if tab_backtest is not None:
             for liga in sorted(set(list(per_liga_best.keys()) + list(per_liga_default.keys()))):
                 best_m = per_liga_best.get(liga, {})
                 def_m = per_liga_default.get(liga, {})
+                n = best_m.get("n", def_m.get("n", 0))
+                if n == 0:
+                    continue
                 liga_rows.append({
                     "Liga": liga,
-                    "Kamper": best_m.get("n", def_m.get("n", 0)),
+                    "Kamper": n,
                     "Standard acc": f"{def_m.get('accuracy', '?')}%",
                     "Optimal acc": f"{best_m.get('accuracy', '?')}%",
                     "Standard log-loss": def_m.get("log_loss", "?"),
@@ -1151,63 +1172,107 @@ if tab_backtest is not None:
 
             # ─── Parametersensitivitet ───
             st.markdown("#### Parametersensitivitet")
+            st.caption("Snitt accuracy over alle kombinasjoner der parameteren har gitt verdi. Flat linje = ingen effekt.")
             sensitivity = bt.get("sensitivity", {})
+            _sens_labels = {
+                "form_weight": "Form-vekt",
+                "form_window": "Formvindu (kamper)",
+            }
             for param_name, values in sensitivity.items():
-                if not values:
+                if not values or len(values) < 2:
                     continue
+                # Sjekk om det er variasjon
+                vals_list = list(values.values())
+                if max(vals_list) - min(vals_list) < 0.1:
+                    continue
+                label = _sens_labels.get(param_name, param_name)
+                st.markdown(f"**{label}**")
                 sens_df = pd.DataFrame({
-                    param_name: list(values.keys()),
+                    "Verdi": [float(k) for k in values.keys()],
                     "Accuracy (%)": list(values.values()),
                 })
-                st.line_chart(sens_df.set_index(param_name), height=200)
+                st.line_chart(sens_df.set_index("Verdi"), height=250)
 
             st.divider()
 
             # ─── Kalibrering ───
-            st.markdown("#### Kalibrering (predikert vs observert)")
+            st.markdown("#### Kalibrering")
+            st.caption("Perfekt modell = predikert og observert er like (langs diagonalen). Over diagonalen = modellen er overmodig.")
             calibration = bt.get("calibration", [])
             if calibration:
                 cal_df = pd.DataFrame(calibration)
+
+                # Graf med bin som x-akse
+                chart_data = pd.DataFrame({
+                    "Predikert %": cal_df["avg_predicted"].values,
+                    "Observert %": cal_df["avg_observed"].values,
+                    "Perfekt": cal_df["avg_predicted"].values,  # diagonalen
+                })
+                chart_data.index = cal_df["bin"].values
+                st.line_chart(chart_data, height=350)
+
+                # Tabell under
                 display_cal = cal_df[["bin", "avg_predicted", "avg_observed", "n"]].rename(columns={
-                    "bin": "Bin",
+                    "bin": "Sannsynlighetsbin",
                     "avg_predicted": "Predikert %",
                     "avg_observed": "Observert %",
-                    "n": "Antall",
+                    "n": "Antall prediksjoner",
                 })
                 st.dataframe(display_cal, use_container_width=True, hide_index=True)
-
-                # Kalibreringsgraf
-                chart_cal = cal_df[["avg_predicted", "avg_observed"]].rename(columns={
-                    "avg_predicted": "Predikert",
-                    "avg_observed": "Observert",
-                })
-                st.line_chart(chart_cal, height=300)
 
             st.divider()
 
             # ─── Kampdetaljer ───
-            st.markdown("#### Kampdetaljer (backtest)")
+            st.markdown("#### Kampdetaljer")
             if os.path.exists(_backtest_details_path):
                 try:
                     details_df = pd.read_csv(_backtest_details_path)
+
+                    # Nøkkeltall
+                    dt1, dt2, dt3 = st.columns(3)
+                    n_correct = details_df["correct"].sum()
+                    n_total = len(details_df)
+                    dt1.metric("Totalt", n_total)
+                    dt2.metric("Korrekte", f"{n_correct} ({round(n_correct/max(n_total,1)*100, 1)}%)")
+                    dt3.metric("Feil", f"{n_total - n_correct} ({round((n_total-n_correct)/max(n_total,1)*100, 1)}%)")
+
                     # Filtre
-                    bt_liga_filter = st.multiselect(
-                        "Filtrer per liga",
-                        options=sorted(details_df["liga"].unique()),
-                        default=sorted(details_df["liga"].unique()),
-                        key="bt_liga",
-                    )
-                    bt_correct_filter = st.radio(
-                        "Vis", ["Alle", "Korrekte", "Feil"],
-                        horizontal=True, key="bt_correct",
-                    )
+                    ft1, ft2 = st.columns(2)
+                    with ft1:
+                        bt_liga_filter = st.multiselect(
+                            "Liga",
+                            options=sorted(details_df["liga"].unique()),
+                            default=sorted(details_df["liga"].unique()),
+                            key="bt_liga",
+                        )
+                    with ft2:
+                        bt_correct_filter = st.radio(
+                            "Vis", ["Alle", "Korrekte", "Feil"],
+                            horizontal=True, key="bt_correct",
+                        )
+
                     filtered = details_df[details_df["liga"].isin(bt_liga_filter)]
                     if bt_correct_filter == "Korrekte":
                         filtered = filtered[filtered["correct"] == True]
                     elif bt_correct_filter == "Feil":
                         filtered = filtered[filtered["correct"] == False]
 
-                    st.dataframe(filtered, use_container_width=True, hide_index=True)
+                    # Vis med bedre kolonnenavn
+                    display_details = filtered.rename(columns={
+                        "liga": "Liga",
+                        "home_name": "Hjemmelag",
+                        "away_name": "Bortelag",
+                        "home_goals": "HM",
+                        "away_goals": "BM",
+                        "actual": "Faktisk",
+                        "predicted": "Predikert",
+                        "prob_H": "H%",
+                        "prob_U": "U%",
+                        "prob_B": "B%",
+                        "correct": "Korrekt",
+                    }).drop(columns=["lambda_h", "lambda_b"], errors="ignore")
+
+                    st.dataframe(display_details, use_container_width=True, hide_index=True)
                     st.caption(f"Viser {len(filtered)} av {len(details_df)} kamper")
                 except Exception as _e:
                     st.warning(f"Kunne ikke lese detaljer: {_e}")
