@@ -933,7 +933,6 @@ if tab_historikk is not None:
                     modell_treff = (har_resultat["modell_korrekt"].astype(str) == "true").sum()
                     modell_rate = round(modell_treff / totalt * 100, 1) if totalt > 0 else 0
 
-                    # Verdi-treff (kun kamper med verdisignal)
                     verdi_kamper = har_resultat[har_resultat["verdi_tips"].astype(str).isin(["H", "U", "B"])]
                     verdi_totalt = len(verdi_kamper)
                     verdi_treff = (verdi_kamper["verdi_korrekt"].astype(str) == "true").sum() if verdi_totalt > 0 else 0
@@ -944,7 +943,6 @@ if tab_historikk is not None:
 
                     modell_vs_folk = modell_treff - folk_treff
 
-                    # Metrics
                     m1, m2, m3, m4, m5 = st.columns(5)
                     m1.metric("Kamper tipset", totalt)
                     m2.metric("Modell-treffrate", f"{modell_rate}%")
@@ -957,72 +955,58 @@ if tab_historikk is not None:
 
                     st.divider()
 
-                    # ─── Treffrate per liga ───
-                    st.markdown("#### Treffrate per liga")
-                    liga_stats = []
-                    for liga_navn in har_resultat["liga"].unique():
-                        liga_df = har_resultat[har_resultat["liga"] == liga_navn]
-                        n = len(liga_df)
-                        mt = (liga_df["modell_korrekt"].astype(str) == "true").sum()
-                        ft = (liga_df["folk_korrekt"].astype(str) == "true").sum()
-                        liga_stats.append({
-                            "Liga": liga_navn,
-                            "Kamper": n,
-                            "Modell": f"{round(mt / n * 100, 1)}%",
-                            "Folk": f"{round(ft / n * 100, 1)}%",
-                            "Modell bedre": mt - ft,
-                        })
-                    if liga_stats:
-                        st.dataframe(pd.DataFrame(liga_stats), use_container_width=True, hide_index=True)
+                # ─── Statistikk-seksjon ───
+                if not har_resultat.empty:
+                    stat_col1, stat_col2 = st.columns(2)
 
-                    # ─── Treffrate per modellnivå ───
-                    st.markdown("#### Treffrate per modellnivå")
-                    nivaa_stats = []
-                    for nivaa in har_resultat["modell_nivaa"].unique():
-                        nivaa_df = har_resultat[har_resultat["modell_nivaa"] == nivaa]
-                        n = len(nivaa_df)
-                        mt = (nivaa_df["modell_korrekt"].astype(str) == "true").sum()
-                        nivaa_stats.append({
-                            "Modellnivå": nivaa,
-                            "Kamper": n,
-                            "Treffrate": f"{round(mt / n * 100, 1)}%",
-                        })
-                    if nivaa_stats:
-                        st.dataframe(pd.DataFrame(nivaa_stats), use_container_width=True, hide_index=True)
+                    with stat_col1:
+                        st.markdown("#### Treffrate per liga")
+                        liga_stats = []
+                        for liga_navn in sorted(har_resultat["liga"].unique()):
+                            liga_df = har_resultat[har_resultat["liga"] == liga_navn]
+                            n = len(liga_df)
+                            mt = (liga_df["modell_korrekt"].astype(str) == "true").sum()
+                            ft = (liga_df["folk_korrekt"].astype(str) == "true").sum()
+                            liga_stats.append({
+                                "Liga": liga_navn,
+                                "n": n,
+                                "Modell": f"{round(mt / n * 100, 1)}%",
+                                "Folk": f"{round(ft / n * 100, 1)}%",
+                            })
+                        if liga_stats:
+                            st.dataframe(pd.DataFrame(liga_stats), use_container_width=True, hide_index=True)
 
-                    # ─── Treffrate per kupong (siste 10) ───
-                    st.markdown("#### Treffrate per kupong (siste 10)")
-                    kupong_stats = []
-                    for kid in har_resultat["kupong_id"].unique():
-                        k_df = har_resultat[har_resultat["kupong_id"] == kid]
-                        n = len(k_df)
-                        mt = (k_df["modell_korrekt"].astype(str) == "true").sum()
-                        ft = (k_df["folk_korrekt"].astype(str) == "true").sum()
-                        kupong_stats.append({
-                            "Kupong": kid,
-                            "Kamper": n,
-                            "Modell": f"{round(mt / n * 100, 1)}%",
-                            "Folk": f"{round(ft / n * 100, 1)}%",
-                        })
-                    # Vis siste 10
-                    kupong_df = pd.DataFrame(kupong_stats[-10:])
-                    if not kupong_df.empty:
-                        st.dataframe(kupong_df, use_container_width=True, hide_index=True)
+                    with stat_col2:
+                        st.markdown("#### Treffrate per modellnivå")
+                        nivaa_stats = []
+                        for nivaa in har_resultat["modell_nivaa"].unique():
+                            nivaa_df = har_resultat[har_resultat["modell_nivaa"] == nivaa]
+                            n = len(nivaa_df)
+                            mt = (nivaa_df["modell_korrekt"].astype(str) == "true").sum()
+                            nivaa_stats.append({
+                                "Modellnivå": nivaa,
+                                "n": n,
+                                "Treffrate": f"{round(mt / n * 100, 1)}%",
+                            })
+                        if nivaa_stats:
+                            st.dataframe(pd.DataFrame(nivaa_stats), use_container_width=True, hide_index=True)
 
                     st.divider()
 
-                # ─── Filtre for detaljert visning ───
-                st.markdown("#### Detaljert kamphistorikk")
-                fil1, fil2, fil3 = st.columns(3)
-                with fil1:
+                # ─── Kuponger ───
+                st.markdown("#### Tippekuponger")
+
+                # Filtre
+                hist_fil1, hist_fil2, hist_fil3 = st.columns(3)
+                with hist_fil1:
                     alle_ligaer = sorted(hist_df["liga"].dropna().unique().tolist())
                     valgt_liga = st.multiselect("Liga", options=alle_ligaer, default=alle_ligaer, key="hist_liga")
-                with fil2:
+                with hist_fil2:
                     kun_verdi = st.checkbox("Kun verdikamper", key="hist_verdi")
-                with fil3:
-                    vis_type = st.radio("Vis", ["Alle", "Med resultat", "Venter på resultat"], key="hist_vis", horizontal=True)
+                with hist_fil3:
+                    vis_type = st.radio("Vis", ["Alle", "Med resultat", "Venter"], key="hist_vis", horizontal=True)
 
-                # Filtrer
+                # Appliser filtre
                 vis_df = hist_df.copy()
                 if valgt_liga:
                     vis_df = vis_df[vis_df["liga"].isin(valgt_liga)]
@@ -1030,43 +1014,96 @@ if tab_historikk is not None:
                     vis_df = vis_df[vis_df["verdi_tips"].astype(str).isin(["H", "U", "B"])]
                 if vis_type == "Med resultat":
                     vis_df = vis_df[vis_df["resultat"].astype(str).isin(["H", "U", "B"])]
-                elif vis_type == "Venter på resultat":
+                elif vis_type == "Venter":
                     vis_df = vis_df[~vis_df["resultat"].astype(str).isin(["H", "U", "B"])]
 
-                # Bygg visningstabell
-                if not vis_df.empty:
-                    display_rows = []
-                    for _, row in vis_df.iterrows():
-                        kamp = f"{row.get('hjemmelag', '')} - {row.get('bortelag', '')}"
-                        folk_str = f"{row.get('folk_h', '')}/{row.get('folk_u', '')}/{row.get('folk_b', '')}"
-                        modell_str = f"{row.get('modell_h', '')}/{row.get('modell_u', '')}/{row.get('modell_b', '')}"
-                        res = str(row.get("resultat", ""))
-                        if res in ("H", "U", "B"):
-                            modell_ok = "✅" if str(row.get("modell_korrekt", "")) == "true" else "❌"
-                            folk_ok = "✅" if str(row.get("folk_korrekt", "")) == "true" else "❌"
-                        else:
-                            res = "⏳"
-                            modell_ok = "–"
-                            folk_ok = "–"
-                        display_rows.append({
-                            "Dato": row.get("dato", ""),
-                            "Kamp": kamp,
-                            "Liga": row.get("liga", ""),
-                            "Folk H/U/B": folk_str,
-                            "Modell H/U/B": modell_str,
-                            "Tips": row.get("modell_tips", ""),
-                            "Verdi": row.get("verdi_tips", ""),
-                            "Resultat": res,
-                            "Modell": modell_ok,
-                            "Folk": folk_ok,
-                        })
-                    st.dataframe(pd.DataFrame(display_rows), use_container_width=True, hide_index=True)
-                else:
+                if vis_df.empty:
                     st.info("Ingen kamper matcher filtrene")
+                else:
+                    # Grupper per kupong, sorter nyeste først
+                    kupong_ids = vis_df["kupong_id"].unique().tolist()
+                    kupong_ids.reverse()
 
-                # Ventende kamper
-                if not venter.empty:
-                    st.caption(f"⏳ {len(venter)} kamper venter på resultater")
+                    for kid in kupong_ids:
+                        k_df = vis_df[vis_df["kupong_id"] == kid]
+                        if k_df.empty:
+                            continue
+
+                        # Parse kupong-info fra kupong_id (format: "YYYY-MM-DD_Dagtype")
+                        kid_parts = str(kid).split("_", 1)
+                        kupong_dato = kid_parts[0] if kid_parts else ""
+                        kupong_dag = kid_parts[1] if len(kid_parts) > 1 else ""
+
+                        # Beregn kupongstatistikk
+                        k_har_res = k_df[k_df["resultat"].astype(str).isin(["H", "U", "B"])]
+                        k_n = len(k_df)
+                        k_n_res = len(k_har_res)
+                        k_modell = (k_har_res["modell_korrekt"].astype(str) == "true").sum() if k_n_res > 0 else 0
+                        k_folk = (k_har_res["folk_korrekt"].astype(str) == "true").sum() if k_n_res > 0 else 0
+
+                        # Lag tittel
+                        if k_n_res > 0:
+                            k_modell_pct = round(k_modell / k_n_res * 100)
+                            k_folk_pct = round(k_folk / k_n_res * 100)
+                            status_str = f"Modell {k_modell}/{k_n_res} ({k_modell_pct}%)  ·  Folk {k_folk}/{k_n_res} ({k_folk_pct}%)"
+                        elif k_n_res == 0 and k_n > 0:
+                            status_str = f"⏳ {k_n} kamper venter på resultat"
+                        else:
+                            status_str = ""
+
+                        kupong_tittel = f"{kupong_dag}kupong {kupong_dato}  —  {k_n} kamper  ·  {status_str}"
+
+                        with st.expander(kupong_tittel, expanded=(kid == kupong_ids[0])):
+                            # Nøkkeltall for denne kupongen
+                            if k_n_res > 0:
+                                kc1, kc2, kc3, kc4 = st.columns(4)
+                                kc1.metric("Kamper", k_n)
+                                kc2.metric("Modell", f"{k_modell}/{k_n_res}")
+                                kc3.metric("Folk", f"{k_folk}/{k_n_res}")
+                                k_diff = k_modell - k_folk
+                                kc4.metric("Modell vs Folk", f"{'+' if k_diff > 0 else ''}{k_diff}",
+                                           delta=f"{'+' if k_diff > 0 else ''}{k_diff}",
+                                           delta_color="normal")
+
+                            # Kamptabell
+                            display_rows = []
+                            for _, row in k_df.iterrows():
+                                kamp = f"{row.get('hjemmelag', '')} - {row.get('bortelag', '')}"
+                                folk_str = f"{row.get('folk_h', '')}/{row.get('folk_u', '')}/{row.get('folk_b', '')}"
+                                modell_str = f"{row.get('modell_h', '')}/{row.get('modell_u', '')}/{row.get('modell_b', '')}"
+                                res = str(row.get("resultat", ""))
+                                if res in ("H", "U", "B"):
+                                    modell_ok = "✅" if str(row.get("modell_korrekt", "")) == "true" else "❌"
+                                    folk_ok = "✅" if str(row.get("folk_korrekt", "")) == "true" else "❌"
+                                else:
+                                    res = "⏳"
+                                    modell_ok = "–"
+                                    folk_ok = "–"
+
+                                avvik_val = row.get("max_avvik", 0)
+                                try:
+                                    avvik_float = float(avvik_val)
+                                    avvik_str = f"{avvik_float:.1f}pp"
+                                except (ValueError, TypeError):
+                                    avvik_str = "–"
+
+                                display_rows.append({
+                                    "Kamp": kamp,
+                                    "Liga": row.get("liga", ""),
+                                    "Folk": folk_str,
+                                    "Modell": modell_str,
+                                    "Tips": row.get("modell_tips", ""),
+                                    "Verdi": row.get("verdi_tips", "") or "–",
+                                    "Avvik": avvik_str,
+                                    "Resultat": res,
+                                    "M": modell_ok,
+                                    "F": folk_ok,
+                                })
+                            st.dataframe(pd.DataFrame(display_rows), use_container_width=True, hide_index=True)
+
+                    # Oppsummering under
+                    st.caption(f"Viser {len(kupong_ids)} kuponger med totalt {len(vis_df)} kamper"
+                               + (f" · ⏳ {len(venter)} kamper venter på resultater" if not venter.empty else ""))
 
 # ═══════════════════════════════════════════════
 # BACKTEST-FANEN
