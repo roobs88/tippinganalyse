@@ -31,86 +31,188 @@ st.set_page_config(page_title="Modelltipset", page_icon="⚽", layout="wide")
 # ─────────────────────────────────────────────
 _GLOBAL_CSS = """
 <style>
-/* ── Sammendragstabell ── */
-.sammendrag-table {
-    width: 100%; border-collapse: separate; border-spacing: 0;
-    border-radius: 8px; overflow: hidden;
-    border: 1px solid rgba(128,128,128,0.2);
-    margin: 8px 0 16px 0;
-}
-.sammendrag-table th {
-    padding: 10px 12px; text-align: left; font-size: 13px;
-    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-    background: rgba(128,128,128,0.08); color: inherit;
-    border-bottom: 2px solid rgba(128,128,128,0.15);
-}
-.sammendrag-table th.center { text-align: center; }
-.sammendrag-table td {
-    padding: 10px 12px; border-bottom: 1px solid rgba(128,128,128,0.1);
-    font-size: 14px; vertical-align: middle;
-}
-.sammendrag-table tr:last-child td { border-bottom: none; }
-.sammendrag-table tr:hover { background: rgba(128,128,128,0.04); }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
-/* Prob bar */
+/* ── Global theme ── */
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'DM Sans', sans-serif !important;
+}
+[data-testid="stAppViewContainer"] {
+    background: #f5f4f0 !important;
+}
+[data-testid="stHeader"] {
+    background: #f5f4f0 !important;
+}
+[data-testid="stSidebar"] {
+    background: #eeedea !important;
+}
+
+/* ── Brand header ── */
+.brand-header {
+    color: #5a9e74; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2px;
+}
+.kupong-title { font-size: 28px; font-weight: 700; color: #2c2c30; margin: 0; }
+.kupong-meta { font-size: 13px; color: #8a8a90; margin-top: 2px; }
+
+/* ── Legend ── */
+.legend {
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+    font-size: 11px; color: #8a8a90; padding: 6px 0 10px 0;
+    border-bottom: 1px solid #e8e6e1; margin-bottom: 8px;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.legend-swatch {
+    display: inline-block; width: 14px; height: 10px; border-radius: 2px;
+}
+
+/* ── Prob bar ── */
 .prob-bar {
-    display: flex; height: 22px; border-radius: 6px; overflow: hidden;
-    font-size: 11px; font-weight: 600; line-height: 22px;
-    border: 1px solid rgba(128,128,128,0.15);
+    display: flex; height: 15px; border-radius: 3px; overflow: hidden;
+    font-size: 10px; font-weight: 700; line-height: 15px;
 }
-.prob-bar.model-bar { border: 2px solid rgba(100,100,255,0.35); }
-.prob-seg-h { background: #22c55e; color: #fff; text-align: center; min-width: 28px; }
-.prob-seg-u { background: #eab308; color: #fff; text-align: center; min-width: 28px; }
-.prob-seg-b { background: #ef4444; color: #fff; text-align: center; min-width: 28px; }
+.prob-bar.model-bar { border: 1px solid rgba(74,140,100,0.3); }
+.prob-seg-h { background: #7bac8e; color: #fff; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+.prob-seg-u { background: #b8af88; color: #fff; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+.prob-seg-b { background: #be9484; color: #fff; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+/* Modell-bar: sterkere farger */
+.model-bar .prob-seg-h { background: #4a8c64; }
+.model-bar .prob-seg-u { background: #9e9460; }
+.model-bar .prob-seg-b { background: #ad6e58; }
 
-/* Score badge */
+/* ── Score badge ── */
 .score-badge {
     display: inline-flex; align-items: center; gap: 4px;
-    font-size: 15px; font-weight: 700; font-family: monospace;
+    font-size: 14px; font-weight: 700; font-family: 'DM Sans', monospace;
 }
 .score-badge .goals {
-    background: rgba(128,128,128,0.1); border-radius: 6px;
-    padding: 2px 8px; min-width: 32px; text-align: center;
+    background: #eeedea; border-radius: 5px;
+    padding: 1px 7px; min-width: 28px; text-align: center; color: #2c2c30;
 }
-.score-badge .dash { color: rgba(128,128,128,0.4); }
+.score-badge .dash { color: #b0b0b0; }
 
-/* Signal dot */
+/* ── Signal ── */
+.signal-wrap {
+    display: inline-flex; align-items: center; gap: 5px;
+}
 .signal-dot {
-    display: inline-block; width: 16px; height: 16px;
-    border-radius: 50%; cursor: help;
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%;
 }
-.signal-dot.green { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
-.signal-dot.red   { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
-.signal-dot.grey  { background: #9ca3af; }
+.signal-dot.sterk { background: #c0392b; box-shadow: 0 0 6px rgba(192,57,43,0.45); }
+.signal-dot.mild  { background: #d4a34a; }
+.signal-dot.noytral { background: #b0b0b0; }
+.signal-label { font-size: 11px; font-weight: 600; }
+.signal-label.sterk { color: #c0392b; }
+.signal-label.mild  { color: #d4a34a; }
+.signal-label.noytral { color: #b0b0b0; }
 
-/* Modellnivå badge */
+/* ── Modellnivå badge ── */
 .modell-badge {
     display: inline-block; padding: 2px 10px; border-radius: 12px;
     font-size: 11px; font-weight: 600;
 }
 
+/* ── Kamprad (integrert visning) ── */
+.kamprad {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid #e8e6e1;
+    border-radius: 10px 10px 0 0;
+    margin-top: 10px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.kamprad .kamp-navn {
+    flex: 1.5; font-weight: 600; font-size: 14px; line-height: 1.3;
+    color: #2c2c30;
+}
+.kamprad .kamp-navn .liga { font-size: 11px; color: #a0a0a5; font-weight: 400; }
+.kamprad .kamp-col { flex: 1; text-align: center; }
+.kamprad .kamp-col .col-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #a0a0a5; margin-bottom: 3px;
+}
+
+/* ── Kommentar-rad ── */
+.kommentar-rad {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 14px 6px 14px;
+    background: #ffffff;
+    border-left: 1px solid #e8e6e1;
+    border-right: 1px solid #e8e6e1;
+}
+.kommentar-tekst {
+    font-size: 12px; color: #8a8a90; font-style: italic;
+    flex: 1; line-height: 1.4;
+}
+.avvik-badge {
+    font-size: 10px; font-weight: 600; color: #b08a30;
+    background: rgba(176,138,48,0.07);
+    padding: 2px 8px; border-radius: 8px;
+    white-space: nowrap; margin-left: 10px;
+}
+
+/* ── Expander: visuelt tilknyttet kamprad ── */
+[data-testid="stExpander"] {
+    margin-top: 0 !important;
+    margin-bottom: 6px !important;
+    border: 1px solid #e8e6e1 !important;
+    border-top: none !important;
+    border-radius: 0 0 10px 10px !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    overflow: hidden;
+}
+[data-testid="stExpander"] summary {
+    padding: 5px 14px !important;
+    font-size: 12px !important;
+    color: #8a8a90 !important;
+}
+[data-testid="stExpander"] summary p {
+    font-size: 12px !important;
+    color: #8a8a90 !important;
+}
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    background: #faf9f7 !important;
+    padding: 10px 14px !important;
+}
+
+/* ── Styrkerating progress bars (detaljpanel) ── */
+.styrke-bar-wrap { margin: 4px 0; }
+.styrke-bar-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
+    color: #a0a0a5; margin-bottom: 2px;
+}
+.styrke-bar-bg {
+    height: 4px; background: #eeecea; border-radius: 2px; overflow: hidden;
+}
+.styrke-bar-fill { height: 4px; border-radius: 2px; }
+.styrke-bar-fill.angrep { background: #5a9e74; }
+.styrke-bar-fill.forsvar { background: #7a8ea8; }
+
 /* ── Kupong-tabell ── */
 .kupong-table {
     width: 100%; border-collapse: separate; border-spacing: 0;
     border-radius: 8px; overflow: hidden;
-    border: 1px solid rgba(128,128,128,0.2);
+    border: 1px solid #e8e6e1;
     margin: 8px 0 16px 0;
 }
 .kupong-table th {
     padding: 10px 12px; text-align: center; font-size: 12px;
     font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-    background: rgba(128,128,128,0.08); color: inherit;
-    border-bottom: 2px solid rgba(128,128,128,0.15);
+    background: #faf9f7; color: #2c2c30;
+    border-bottom: 2px solid #e8e6e1;
 }
 .kupong-table th:first-child { text-align: left; }
 .kupong-table td {
-    padding: 8px 12px; border-bottom: 1px solid rgba(128,128,128,0.08);
+    padding: 8px 12px; border-bottom: 1px solid #eeedea;
     font-size: 14px; vertical-align: middle;
 }
 .kupong-table tr:last-child td { border-bottom: none; }
 .kupong-row-singel { background: transparent; }
-.kupong-row-dobbel { background: rgba(37,99,235,0.06); }
-.kupong-row-trippel { background: rgba(220,38,38,0.06); }
+.kupong-row-dobbel { background: rgba(37,99,235,0.04); }
+.kupong-row-trippel { background: rgba(220,38,38,0.04); }
 
 /* Tegn-badge i kupong */
 .tegn-badge {
@@ -147,19 +249,13 @@ _GLOBAL_CSS = """
 .kpi-card {
     flex: 1; min-width: 100px; padding: 14px 18px;
     border-radius: 10px; text-align: center;
-    background: rgba(128,128,128,0.06);
-    border: 1px solid rgba(128,128,128,0.12);
+    background: #ffffff;
+    border: 1px solid #e8e6e1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .kpi-card .kpi-icon { font-size: 20px; margin-bottom: 2px; }
-.kpi-card .kpi-value { font-size: 26px; font-weight: 700; }
-.kpi-card .kpi-label { font-size: 12px; color: rgba(128,128,128,0.7); margin-top: 2px; }
-
-/* ── Dark mode overrides ── */
-@media (prefers-color-scheme: dark) {
-    .prob-seg-u { color: #1a1a1a; }
-    .begrunnelse-chip { background: rgba(255,255,255,0.06); }
-    .kpi-card { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
-}
+.kpi-card .kpi-value { font-size: 26px; font-weight: 700; color: #2c2c30; }
+.kpi-card .kpi-label { font-size: 12px; color: #a0a0a5; margin-top: 2px; }
 </style>
 """
 st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
@@ -309,17 +405,16 @@ def form_bokser(form_liste):
     """Returnerer form som fargede W/D/L-bokser i HTML."""
     if not form_liste:
         return ""
-    farger = {"W": "#22c55e", "D": "#eab308", "L": "#ef4444"}
+    farger = {"W": "#3a7d5c", "D": "#a09478", "L": "#b06060"}
     html = ""
     for f in form_liste[:5]:
         r = f.get("result", "?")
         c = farger.get(r, "#9ca3af")
         tooltip = f"{f.get('score', '')} vs {f.get('opponent', '')}"
-        venue = "H" if f.get("is_home") else "B"
         html += (
-            f'<span title="{tooltip}" style="display:inline-block;width:28px;height:28px;'
-            f'line-height:28px;text-align:center;border-radius:4px;margin:1px;'
-            f'background:{c};color:white;font-weight:bold;font-size:13px">'
+            f'<span title="{tooltip}" style="display:inline-block;width:22px;height:22px;'
+            f'line-height:22px;text-align:center;border-radius:4px;margin:1px;'
+            f'background:{c};color:white;font-weight:bold;font-size:11px">'
             f'{r}</span>'
         )
     return html
@@ -327,12 +422,12 @@ def form_bokser(form_liste):
 def modell_nivaa_badge(nivaa):
     """Returnerer en farget badge for modellnivå."""
     farger = {
-        "Dyp (form+xG)": "#22c55e",
-        "Dyp (form)": "#3b82f6",
-        "Basis (sesongsnitt)": "#eab308",
-        "Ingen modell": "#9ca3af",
+        "Dyp (form+xG)": "#5a9e74",
+        "Dyp (form)": "#5a86a8",
+        "Basis (sesongsnitt)": "#b8a050",
+        "Ingen modell": "#b0b0b0",
     }
-    bg = farger.get(nivaa, "#9ca3af")
+    bg = farger.get(nivaa, "#b0b0b0")
     return (
         f'<span style="background:{bg};color:white;padding:2px 8px;'
         f'border-radius:10px;font-size:12px;font-weight:bold">{nivaa}</span>'
@@ -1088,8 +1183,8 @@ _has_backtest = os.path.exists(_backtest_results_path)
 tab_names = ["Analyse", "Spillforslag"]
 if sheets_available():
     tab_names.append("Historikk")
-if _has_backtest:
-    tab_names.append("Backtest")
+# if _has_backtest:
+#     tab_names.append("Backtest")
 
 tabs = st.tabs(tab_names)
 tab_analyse = tabs[0]
@@ -1104,147 +1199,209 @@ tab_backtest = tabs[tab_names.index("Backtest")] if "Backtest" in tab_names else
 with tab_analyse:
 
     # ─────────────────────────────────────────────
-    # SAMMENDRAGSTABELL
+    # KAMPVISNING (integrert sammendrag + detaljer)
     # ─────────────────────────────────────────────
 
-    st.subheader("Sammendrag")
+    def _kamprad_html(a):
+        """Rendrer én kompakt kamprad som HTML-div med flex-layout."""
+        rad = a["rad"]
+        pr = a["poisson_res"]
+        avvik = a["avvik_poi"]
+        max_av = a["max_poi_avvik"]
 
-    def _sammendrag_html(analyser):
-        """Bygger modernisert sammendrag som HTML-tabell med probability-bars."""
-        rows = ""
-        for a in analyser:
-            rad = a["rad"]
-            pr = a["poisson_res"]
-            avvik = a["avvik_poi"]
-            max_av = a["max_poi_avvik"]
-
-            # Kampnavn + liga
-            kamp_cell = (
-                f'<td><strong>{rad["Kamp"]}</strong>'
-                f'<br><span style="font-size:11px;color:rgba(128,128,128,0.7)">{rad["Liga"]}</span></td>'
-            )
-
-            # Folk prob-bar
-            fh, fu, fb = a["folk_h"], a["folk_u"], a["folk_b"]
-            folk_bar = (
-                f'<td style="min-width:140px">'
-                f'<div class="prob-bar">'
-                f'<div class="prob-seg-h" style="width:{fh}%">{fh}</div>'
-                f'<div class="prob-seg-u" style="width:{fu}%">{fu}</div>'
-                f'<div class="prob-seg-b" style="width:{fb}%">{fb}</div>'
-                f'</div></td>'
-            )
-
-            # Modell prob-bar
-            if pr:
-                mh, mu, mb = pr["H"], pr["U"], pr["B"]
-                modell_bar = (
-                    f'<td style="min-width:140px">'
-                    f'<div class="prob-bar model-bar">'
-                    f'<div class="prob-seg-h" style="width:{mh}%">{mh}</div>'
-                    f'<div class="prob-seg-u" style="width:{mu}%">{mu}</div>'
-                    f'<div class="prob-seg-b" style="width:{mb}%">{mb}</div>'
-                    f'</div></td>'
-                )
-            else:
-                modell_bar = '<td style="text-align:center;color:rgba(128,128,128,0.4)">–</td>'
-
-            # Forventede mål
-            if pr:
-                maal_cell = (
-                    f'<td style="text-align:center">'
-                    f'<span class="score-badge">'
-                    f'<span class="goals">{pr["lambda_h"]}</span>'
-                    f'<span class="dash">–</span>'
-                    f'<span class="goals">{pr["lambda_b"]}</span>'
-                    f'</span></td>'
-                )
-            else:
-                maal_cell = '<td style="text-align:center;color:rgba(128,128,128,0.4)">–</td>'
-
-            # Modellnivå
-            nivaa = a["modell_nivaa"]
-            nivaa_farger = {
-                "Dyp (form+xG)": "#22c55e", "Dyp (form)": "#3b82f6",
-                "Basis (sesongsnitt)": "#eab308", "Ingen modell": "#9ca3af",
-            }
-            nbg = nivaa_farger.get(nivaa, "#9ca3af")
-            nivaa_cell = (
-                f'<td style="text-align:center">'
-                f'<span class="modell-badge" style="background:{nbg};color:#fff">{nivaa}</span></td>'
-            )
-
-            # Verdisignal
-            if max_av >= 8:
-                beste = max(avvik, key=lambda x: abs(x) if x else 0, default=None)
-                if beste is not None and beste > 8:
-                    dot_cls = "green"
-                    tip = f"Modellen ser {beste:.1f}pp mer enn folk"
-                elif beste is not None and beste < -8:
-                    dot_cls = "red"
-                    tip = f"Folk overtipper med {abs(beste):.1f}pp"
-                else:
-                    dot_cls = "grey"
-                    tip = "Ingen tydelig signal"
-            else:
-                dot_cls = "grey"
-                tip = "Ingen tydelig signal"
-            signal_cell = (
-                f'<td style="text-align:center">'
-                f'<span class="signal-dot {dot_cls}" title="{tip}"></span></td>'
-            )
-
-            rows += f"<tr>{kamp_cell}{folk_bar}{modell_bar}{maal_cell}{nivaa_cell}{signal_cell}</tr>\n"
-
-        return f"""
-        <table class="sammendrag-table">
-        <thead><tr>
-            <th>Kamp</th>
-            <th class="center">Folk H / U / B</th>
-            <th class="center">Modell H / U / B</th>
-            <th class="center">Forv. mål</th>
-            <th class="center">Modellnivå</th>
-            <th class="center">Signal</th>
-        </tr></thead>
-        <tbody>{rows}</tbody>
-        </table>
-        """
-
-    # Splitt: neste kupong (12 kamper) vises direkte, resten i ekspanderbare seksjoner
-    _nk_ids = set(id(a) for a in neste_kupong_analyser)
-    _øvrige = [a for a in analyse_resultater if id(a) not in _nk_ids]
-
-    if neste_kupong_analyser:
-        st.markdown(
-            f"**{neste_kupong_dag}kupong** — {neste_kupong_dato} — "
-            f"{len(neste_kupong_analyser)} kamper"
+        # Kampnavn + liga
+        kamp_navn = (
+            f'<div class="kamp-navn">{rad["Kamp"]}'
+            f'<br><span class="liga">{rad["Liga"]} — {rad["Dato"]}</span></div>'
         )
-        st.markdown(_sammendrag_html(neste_kupong_analyser), unsafe_allow_html=True)
 
-    if _øvrige:
-        # Grupper øvrige kamper per dag
-        _øvrige_per_dag = {}
-        for a in _øvrige:
-            dag = a["rad"]["Dag"]
-            _øvrige_per_dag.setdefault(dag, []).append(a)
+        # Folk prob-bar (vis tall bare hvis segment > 8%)
+        fh, fu, fb = a["folk_h"], a["folk_u"], a["folk_b"]
+        fh_t = str(fh) if fh > 8 else ""
+        fu_t = str(fu) if fu > 8 else ""
+        fb_t = str(fb) if fb > 8 else ""
+        folk_bar = (
+            f'<div class="kamp-col">'
+            f'<div class="col-label">Folk H / U / B</div>'
+            f'<div class="prob-bar">'
+            f'<div class="prob-seg-h" style="width:{fh}%">{fh_t}</div>'
+            f'<div class="prob-seg-u" style="width:{fu}%">{fu_t}</div>'
+            f'<div class="prob-seg-b" style="width:{fb}%">{fb_t}</div>'
+            f'</div></div>'
+        )
 
-        for dag, kamper in _øvrige_per_dag.items():
-            datoer = [a["rad"]["Dato"] for a in kamper if a["rad"]["Dato"]]
-            dato_str = min(datoer) if datoer else ""
-            with st.expander(f"{dag}kupong — {dato_str} — {len(kamper)} kamper"):
-                st.markdown(_sammendrag_html(kamper), unsafe_allow_html=True)
+        # Modell prob-bar (vis tall bare hvis segment > 8%)
+        if pr:
+            mh, mu, mb = pr["H"], pr["U"], pr["B"]
+            mh_t = str(mh) if mh > 8 else ""
+            mu_t = str(mu) if mu > 8 else ""
+            mb_t = str(mb) if mb > 8 else ""
+            modell_bar = (
+                f'<div class="kamp-col">'
+                f'<div class="col-label">Modell H / U / B</div>'
+                f'<div class="prob-bar model-bar">'
+                f'<div class="prob-seg-h" style="width:{mh}%">{mh_t}</div>'
+                f'<div class="prob-seg-u" style="width:{mu}%">{mu_t}</div>'
+                f'<div class="prob-seg-b" style="width:{mb}%">{mb_t}</div>'
+                f'</div></div>'
+            )
+        else:
+            modell_bar = '<div class="kamp-col"><div class="col-label">Modell H / U / B</div><span style="color:#b0b0b0">–</span></div>'
 
-    st.divider()
+        # Forventede mål
+        if pr:
+            maal_col = (
+                f'<div class="kamp-col">'
+                f'<div class="col-label">Forv. mål</div>'
+                f'<span class="score-badge">'
+                f'<span class="goals">{pr["lambda_h"]}</span>'
+                f'<span class="dash">–</span>'
+                f'<span class="goals">{pr["lambda_b"]}</span>'
+                f'</span></div>'
+            )
+        else:
+            maal_col = '<div class="kamp-col"><div class="col-label">Forv. mål</div><span style="color:rgba(128,128,128,0.4)">–</span></div>'
 
-    # ─────────────────────────────────────────────
-    # KAMPVISNING
-    # ─────────────────────────────────────────────
+        # Modellnivå
+        nivaa = a["modell_nivaa"]
+        nivaa_farger = {
+            "Dyp (form+xG)": "#5a9e74", "Dyp (form)": "#5a86a8",
+            "Basis (sesongsnitt)": "#b8a050", "Ingen modell": "#b0b0b0",
+        }
+        nbg = nivaa_farger.get(nivaa, "#9ca3af")
+        nivaa_col = (
+            f'<div class="kamp-col">'
+            f'<div class="col-label">Modellnivå</div>'
+            f'<span class="modell-badge" style="background:{nbg};color:#fff">{nivaa}</span></div>'
+        )
+
+        # Verdisignal — prikk + tekstlabel
+        if max_av >= 12:
+            beste = max(avvik, key=lambda x: abs(x) if x else 0, default=None)
+            sig_cls = "sterk"
+            sig_label = "Sterk"
+            tip = f"{abs(beste):.0f}pp avvik" if beste else ""
+        elif max_av >= 8:
+            sig_cls = "mild"
+            sig_label = "Mild"
+            beste = max(avvik, key=lambda x: abs(x) if x else 0, default=None)
+            tip = f"{abs(beste):.0f}pp avvik" if beste else ""
+        else:
+            sig_cls = "noytral"
+            sig_label = "Nøytral"
+            tip = ""
+        signal_col = (
+            f'<div class="kamp-col">'
+            f'<div class="col-label">Signal</div>'
+            f'<span class="signal-wrap">'
+            f'<span class="signal-dot {sig_cls}" title="{tip}"></span>'
+            f'<span class="signal-label {sig_cls}">{sig_label}</span>'
+            f'</span></div>'
+        )
+
+        return f'<div class="kamprad">{kamp_navn}{folk_bar}{modell_bar}{maal_col}{nivaa_col}{signal_col}</div>'
+
+    def _kort_kommentar(a):
+        """Genererer en kort faktabasert kommentar om styrkeforholdet i kampen."""
+        pr = a["poisson_res"]
+        if not pr:
+            return None
+        hjemme = a["rad"]["Hjemmelag"]
+        borte = a["rad"]["Bortelag"]
+        deler = []
+
+        # Styrkerating — hvem har bedre angrep/forsvar basert på sesongstatistikk
+        s = pr.get("styrke")
+        if s:
+            h_atk, h_def = s["home_attack"], s["home_defense"]
+            b_atk, b_def = s["away_attack"], s["away_defense"]
+            h_tot = h_atk + h_def
+            b_tot = b_atk + b_def
+            if h_tot > b_tot + 0.3:
+                if h_atk > b_atk + 0.15 and h_def > b_def + 0.15:
+                    deler.append(f"{hjemme} er sterkere både i angrep og forsvar denne sesongen")
+                elif h_atk > b_atk + 0.15:
+                    deler.append(f"{hjemme} har et klart sterkere angrep, men jevnere forsvar")
+                else:
+                    deler.append(f"{hjemme} har et solidere forsvar og hjemmebanefordel")
+            elif b_tot > h_tot + 0.3:
+                if b_atk > h_atk + 0.15 and b_def > h_def + 0.15:
+                    deler.append(f"{borte} er sterkere i både angrep og forsvar, selv på bortebane")
+                elif b_atk > h_atk + 0.15:
+                    deler.append(f"{borte} har et sterkere angrep basert på sesongen")
+                else:
+                    deler.append(f"{borte} har et solidere forsvar til tross for bortebane")
+            else:
+                deler.append("Lagene er jevne på sesongstatistikken")
+
+        # Form — hvem er i best form akkurat nå
+        hf = a.get("h_form")
+        bf = a.get("b_form")
+        if hf and bf and hf.get("scoret_snitt") is not None and bf.get("scoret_snitt") is not None:
+            h_form_score = hf["scoret_snitt"] - hf["innsluppet_snitt"]
+            b_form_score = bf["scoret_snitt"] - bf["innsluppet_snitt"]
+            if h_form_score > b_form_score + 0.8:
+                deler.append(f"{hjemme} er i klart bedre form hjemme ({hf['scoret_snitt']:.1f} scoret, {hf['innsluppet_snitt']:.1f} innsluppet per kamp)")
+            elif b_form_score > h_form_score + 0.8:
+                deler.append(f"{borte} er i bedre form borte ({bf['scoret_snitt']:.1f} scoret, {bf['innsluppet_snitt']:.1f} innsluppet per kamp)")
+
+        # Forventet mål — hvem forventes å dominere
+        lh, lb = pr.get("lambda_h"), pr.get("lambda_b")
+        if lh is not None and lb is not None:
+            total = lh + lb
+            if lh > lb + 0.5:
+                deler.append(f"forventet målbilde {lh:.1f}–{lb:.1f} i favør {hjemme}")
+            elif lb > lh + 0.5:
+                deler.append(f"forventet målbilde {lh:.1f}–{lb:.1f} i favør {borte}")
+            elif total > 3.0:
+                deler.append(f"jevn kamp med høy forventet målsum ({total:.1f})")
+            elif total < 2.0:
+                deler.append(f"jevn kamp, men lav forventet målsum ({total:.1f})")
+
+        # H2H — historisk dominans
+        opps = a.get("h2h_opps")
+        if opps and opps.get("kamper", 0) >= 3:
+            seire = opps["seire"]
+            tap = opps["tap"]
+            kamper = opps["kamper"]
+            if seire >= kamper * 0.7:
+                deler.append(f"{hjemme} har vunnet {seire} av {kamper} innbyrdes oppgjør")
+            elif tap >= kamper * 0.7:
+                deler.append(f"{borte} har vunnet {tap} av {kamper} innbyrdes oppgjør")
+
+        return ". ".join(deler[:3]) + "." if deler else None
+
+    # ── Brand header ──
+    st.markdown('<div class="brand-header">TipsMaskinen</div>', unsafe_allow_html=True)
+
+    # ── Legend (fargekode-forklaring, vises én gang) ──
+    st.markdown(
+        '<div class="legend">'
+        '<span class="legend-item"><span class="legend-swatch" style="background:#7bac8e"></span> H (hjemme)</span>'
+        '<span class="legend-item"><span class="legend-swatch" style="background:#b8af88"></span> U (uavgjort)</span>'
+        '<span class="legend-item"><span class="legend-swatch" style="background:#be9484"></span> B (borte)</span>'
+        '<span style="color:#d0d0d0">|</span>'
+        '<span class="legend-item"><span class="signal-dot sterk" style="width:8px;height:8px"></span> Sterk</span>'
+        '<span class="legend-item"><span class="signal-dot mild" style="width:8px;height:8px"></span> Mild</span>'
+        '<span class="legend-item"><span class="signal-dot noytral" style="width:8px;height:8px"></span> Nøytral</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
     verdikamper = 0
 
     for dag in df_vis["Dag"].unique():
-        st.subheader(f"📅 {dag}kupong")
         dag_analyser = [a for a in analyse_resultater if a["rad"]["Dag"] == dag]
+        datoer = [a["rad"]["Dato"] for a in dag_analyser if a["rad"]["Dato"]]
+        dato_str = min(datoer) if datoer else ""
+        # Kupong-header med metadata
+        _nivaaer = set(a["modell_nivaa"] for a in dag_analyser)
+        _nivaa_str = ", ".join(_nivaaer)
+        st.markdown(
+            f'<p class="kupong-title">{dag}kupong</p>'
+            f'<p class="kupong-meta">{dato_str} · {len(dag_analyser)} kamper · {_nivaa_str}</p>',
+            unsafe_allow_html=True,
+        )
 
         for a in dag_analyser:
             rad = a["rad"]
@@ -1256,7 +1413,6 @@ with tab_analyse:
             avvik_poi = a["avvik_poi"]
             max_poi_avvik = a["max_poi_avvik"]
 
-            har_verdi = max_poi_avvik >= min_avvik
             if bare_verdi and max_poi_avvik < 8:
                 continue
             if max_poi_avvik < min_avvik:
@@ -1264,11 +1420,25 @@ with tab_analyse:
             if max_poi_avvik >= 8:
                 verdikamper += 1
 
-            # Tittel
-            beste = max(avvik_poi, key=lambda x: abs(x) if x else 0, default=None)
-            tittel_ikon = pil(beste) if beste and abs(beste) > 8 else ""
+            # 1) Kompakt kamprad (alltid synlig)
+            st.markdown(_kamprad_html(a), unsafe_allow_html=True)
 
-            with st.expander(f"{tittel_ikon} {rad['Kamp']}  —  {liga}  ({rad['Dato']})"):
+            # Kort kommentar + avvik-badge
+            _kommentar = _kort_kommentar(a)
+            _avvik_html = ""
+            if max_poi_avvik >= 8:
+                _avvik_html = f'<span class="avvik-badge">{max_poi_avvik:.0f}pp avvik</span>'
+            if _kommentar or _avvik_html:
+                _tekst = f'💡 {_kommentar}' if _kommentar else ""
+                st.markdown(
+                    f'<div class="kommentar-rad">'
+                    f'<span class="kommentar-tekst">{_tekst}</span>'
+                    f'{_avvik_html}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # 2) Expanderbart detaljpanel
+            with st.expander("Vis detaljer"):
 
                 # Modellnivå-badge
                 st.markdown(modell_nivaa_badge(a["modell_nivaa"]), unsafe_allow_html=True)
