@@ -437,6 +437,9 @@ def get_historikk_sheet():
         missing = [h for h in spill_headers if h not in existing_headers]
         if missing:
             start_col = len(existing_headers) + 1
+            needed_cols = start_col + len(missing) - 1
+            if ws.col_count < needed_cols:
+                ws.resize(cols=needed_cols)
             for j, h in enumerate(missing):
                 ws.update_cell(1, start_col + j, h)
     return ws
@@ -854,16 +857,37 @@ for _, rad in df_vis.iterrows():
     })
 
 # ─────────────────────────────────────────────
-# GENERER SPILLFORSLAG
+# GENERER SPILLFORSLAG (kun neste kupong = 12 kamper)
 # ─────────────────────────────────────────────
+
+# Finn neste kupong: grupper analyse_resultater per dag, velg den tidligste
+_kuponger_per_dag = {}
+for a in analyse_resultater:
+    dag = a["rad"]["Dag"]
+    _kuponger_per_dag.setdefault(dag, []).append(a)
+
+# Velg kupongen med tidligst dato (= neste kupong)
+neste_kupong_dag = None
+neste_kupong_dato = None
+neste_kupong_analyser = []
+for dag, kamper in _kuponger_per_dag.items():
+    datoer = [a["rad"]["Dato"] for a in kamper if a["rad"]["Dato"]]
+    min_dato = min(datoer) if datoer else "9999"
+    if neste_kupong_dato is None or min_dato < neste_kupong_dato:
+        neste_kupong_dato = min_dato
+        neste_kupong_dag = dag
+        neste_kupong_analyser = kamper
 
 spillforslag_alle = {}
 for profil in SPILLFORSLAG_PROFILER:
-    forslag, rader = generer_spillforslag(analyse_resultater, profil["rader"])
+    forslag, rader = generer_spillforslag(neste_kupong_analyser, profil["rader"])
     spillforslag_alle[profil["navn"].lower()] = {
         "forslag": forslag,
         "rader": rader,
         "profil": profil,
+        "dag": neste_kupong_dag,
+        "dato": neste_kupong_dato,
+        "analyser": neste_kupong_analyser,
     }
 
 # ─────────────────────────────────────────────
@@ -871,16 +895,38 @@ for profil in SPILLFORSLAG_PROFILER:
 # ─────────────────────────────────────────────
 
 if sheets_available() and analyse_resultater:
-    sf_for_lagring = {
-        "lite": spillforslag_alle.get("lite", {}).get("forslag", []),
-        "medium": spillforslag_alle.get("middels", {}).get("forslag", []),
-        "stor": spillforslag_alle.get("stort", {}).get("forslag", []),
-    }
-    antall, duplikat = lagre_kupong_til_sheets(analyse_resultater, sf_for_lagring)
-    if antall > 0:
-        st.toast(f"Kupong lagret til historikk ({antall} kamper)")
-    elif duplikat:
-        pass  # Stille — kupongen er allerede lagret
+    # Grupper analyser per kupong (dagtype)
+    from collections import defaultdict as _defaultdict
+    _kuponger = _defaultdict(list)
+    for a in analyse_resultater:
+        dag = a["rad"]["Dag"]
+        _kuponger[dag].append(a)
+
+    # Map spillforslag til neste-kupong
+    _nk_set = set(id(a) for a in neste_kupong_analyser)
+    _sf_lite = spillforslag_alle.get("lite", {}).get("forslag", [])
+    _sf_mid = spillforslag_alle.get("middels", {}).get("forslag", [])
+    _sf_stor = spillforslag_alle.get("stort", {}).get("forslag", [])
+
+    _totalt_lagret = 0
+    for _dag, _kamper in _kuponger.items():
+        # Bygg spillforslag-mapping for denne kupongen
+        _sf = {"lite": [], "medium": [], "stor": []}
+        _nk_idx = 0
+        for a in _kamper:
+            if id(a) in _nk_set and _nk_idx < len(_sf_lite):
+                _sf["lite"].append(_sf_lite[_nk_idx] if _nk_idx < len(_sf_lite) else None)
+                _sf["medium"].append(_sf_mid[_nk_idx] if _nk_idx < len(_sf_mid) else None)
+                _sf["stor"].append(_sf_stor[_nk_idx] if _nk_idx < len(_sf_stor) else None)
+                _nk_idx += 1
+            else:
+                _sf["lite"].append(None)
+                _sf["medium"].append(None)
+                _sf["stor"].append(None)
+        antall, duplikat = lagre_kupong_til_sheets(_kamper, _sf)
+        _totalt_lagret += antall
+    if _totalt_lagret > 0:
+        st.toast(f"Kupong lagret til historikk ({_totalt_lagret} kamper)")
 
 # ─────────────────────────────────────────────
 # TABS: ANALYSE, HISTORIKK OG BACKTEST
@@ -1214,29 +1260,35 @@ def _kupong_html(forslag, analyse_resultater, profil_navn, faktisk_rader):
 
 with tab_spillforslag:
     st.subheader("Spillforslag")
-    st.caption(
-        "Systemforslag basert på Poisson-modellen. "
-        "Spiller mot folket der modellen ser verdi. "
-        "Pris = antall rekker × 1 kr."
-    )
 
-    # Forklaring fargekoder
-    st.markdown(
-        '<span style="display:inline-block;width:14px;height:14px;background:#1a6b3c;'
-        'border-radius:2px;vertical-align:middle"></span> Modell-valg &nbsp;&nbsp;'
-        '<span style="display:inline-block;width:14px;height:14px;background:#b8860b;'
-        'border-radius:2px;vertical-align:middle"></span> Verdi-spill (>5pp vs folk)',
-        unsafe_allow_html=True,
-    )
-    st.markdown("")
-
-    if not analyse_resultater:
+    if not neste_kupong_analyser:
         st.info("Ingen kamper å lage forslag for.")
     else:
+        st.markdown(
+            f"**{neste_kupong_dag}kupong** — {neste_kupong_dato} — "
+            f"{len(neste_kupong_analyser)} kamper"
+        )
+        st.caption(
+            "Systemforslag basert på Poisson-modellen. "
+            "Spiller mot folket der modellen ser verdi. "
+            "Pris = antall rekker × 1 kr."
+        )
+
+        # Forklaring fargekoder
+        st.markdown(
+            '<span style="display:inline-block;width:14px;height:14px;background:#1a6b3c;'
+            'border-radius:2px;vertical-align:middle"></span> Modell-valg &nbsp;&nbsp;'
+            '<span style="display:inline-block;width:14px;height:14px;background:#b8860b;'
+            'border-radius:2px;vertical-align:middle"></span> Verdi-spill (>5pp vs folk)',
+            unsafe_allow_html=True,
+        )
+        st.markdown("")
+
         for profil_key, sf_data in spillforslag_alle.items():
             profil = sf_data["profil"]
             forslag = sf_data["forslag"]
             faktisk_rader = sf_data["rader"]
+            kupong_analyser = sf_data["analyser"]
 
             if not forslag:
                 continue
@@ -1255,7 +1307,7 @@ with tab_spillforslag:
             kc4.metric("Tripler", antall_tripler)
 
             # Kupong-tabell i HTML
-            html = _kupong_html(forslag, analyse_resultater, profil["navn"], faktisk_rader)
+            html = _kupong_html(forslag, kupong_analyser, profil["navn"], faktisk_rader)
             st.markdown(html, unsafe_allow_html=True)
 
             st.divider()
