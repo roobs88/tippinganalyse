@@ -27,6 +27,144 @@ from fotmob_api import (
 st.set_page_config(page_title="TippingAnalyse", page_icon="⚽", layout="wide")
 
 # ─────────────────────────────────────────────
+# GLOBAL CSS
+# ─────────────────────────────────────────────
+_GLOBAL_CSS = """
+<style>
+/* ── Sammendragstabell ── */
+.sammendrag-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid rgba(128,128,128,0.2);
+    margin: 8px 0 16px 0;
+}
+.sammendrag-table th {
+    padding: 10px 12px; text-align: left; font-size: 13px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    background: rgba(128,128,128,0.08); color: inherit;
+    border-bottom: 2px solid rgba(128,128,128,0.15);
+}
+.sammendrag-table th.center { text-align: center; }
+.sammendrag-table td {
+    padding: 10px 12px; border-bottom: 1px solid rgba(128,128,128,0.1);
+    font-size: 14px; vertical-align: middle;
+}
+.sammendrag-table tr:last-child td { border-bottom: none; }
+.sammendrag-table tr:hover { background: rgba(128,128,128,0.04); }
+
+/* Prob bar */
+.prob-bar {
+    display: flex; height: 22px; border-radius: 6px; overflow: hidden;
+    font-size: 11px; font-weight: 600; line-height: 22px;
+    border: 1px solid rgba(128,128,128,0.15);
+}
+.prob-bar.model-bar { border: 2px solid rgba(100,100,255,0.35); }
+.prob-seg-h { background: #22c55e; color: #fff; text-align: center; min-width: 28px; }
+.prob-seg-u { background: #eab308; color: #fff; text-align: center; min-width: 28px; }
+.prob-seg-b { background: #ef4444; color: #fff; text-align: center; min-width: 28px; }
+
+/* Score badge */
+.score-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 15px; font-weight: 700; font-family: monospace;
+}
+.score-badge .goals {
+    background: rgba(128,128,128,0.1); border-radius: 6px;
+    padding: 2px 8px; min-width: 32px; text-align: center;
+}
+.score-badge .dash { color: rgba(128,128,128,0.4); }
+
+/* Signal dot */
+.signal-dot {
+    display: inline-block; width: 16px; height: 16px;
+    border-radius: 50%; cursor: help;
+}
+.signal-dot.green { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.signal-dot.red   { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+.signal-dot.grey  { background: #9ca3af; }
+
+/* Modellnivå badge */
+.modell-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+}
+
+/* ── Kupong-tabell ── */
+.kupong-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid rgba(128,128,128,0.2);
+    margin: 8px 0 16px 0;
+}
+.kupong-table th {
+    padding: 10px 12px; text-align: center; font-size: 12px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    background: rgba(128,128,128,0.08); color: inherit;
+    border-bottom: 2px solid rgba(128,128,128,0.15);
+}
+.kupong-table th:first-child { text-align: left; }
+.kupong-table td {
+    padding: 8px 12px; border-bottom: 1px solid rgba(128,128,128,0.08);
+    font-size: 14px; vertical-align: middle;
+}
+.kupong-table tr:last-child td { border-bottom: none; }
+.kupong-row-singel { background: transparent; }
+.kupong-row-dobbel { background: rgba(37,99,235,0.06); }
+.kupong-row-trippel { background: rgba(220,38,38,0.06); }
+
+/* Tegn-badge i kupong */
+.tegn-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 8px;
+    font-weight: 700; font-size: 14px;
+}
+.tegn-badge.aktiv { color: #fff; }
+.tegn-badge.aktiv-modell { background: #1a6b3c; }
+.tegn-badge.aktiv-verdi  { background: #b8860b; }
+.tegn-badge.inaktiv { color: rgba(128,128,128,0.25); }
+
+/* Type chip */
+.type-chip {
+    display: inline-block; padding: 3px 12px; border-radius: 12px;
+    font-size: 12px; font-weight: 600; color: #fff; letter-spacing: 0.3px;
+}
+.type-chip.singel  { background: #6b7280; }
+.type-chip.dobbel  { background: #2563eb; }
+.type-chip.trippel { background: #dc2626; }
+
+/* Begrunnelse chip */
+.begrunnelse-chip {
+    display: inline-block; padding: 3px 10px; border-radius: 8px;
+    font-size: 12px; background: rgba(128,128,128,0.08);
+    color: inherit; max-width: 260px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── KPI-kort ── */
+.kpi-row {
+    display: flex; gap: 12px; margin: 8px 0 16px 0; flex-wrap: wrap;
+}
+.kpi-card {
+    flex: 1; min-width: 100px; padding: 14px 18px;
+    border-radius: 10px; text-align: center;
+    background: rgba(128,128,128,0.06);
+    border: 1px solid rgba(128,128,128,0.12);
+}
+.kpi-card .kpi-icon { font-size: 20px; margin-bottom: 2px; }
+.kpi-card .kpi-value { font-size: 26px; font-weight: 700; }
+.kpi-card .kpi-label { font-size: 12px; color: rgba(128,128,128,0.7); margin-top: 2px; }
+
+/* ── Dark mode overrides ── */
+@media (prefers-color-scheme: dark) {
+    .prob-seg-u { color: #1a1a1a; }
+    .begrunnelse-chip { background: rgba(255,255,255,0.06); }
+    .kpi-card { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+}
+</style>
+"""
+st.markdown(_GLOBAL_CSS, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
 # KONSTANTER
 # ─────────────────────────────────────────────
 
@@ -961,34 +1099,130 @@ with tab_analyse:
 
     st.subheader("Sammendrag")
 
-    sammendrag_rader = []
-    for a in analyse_resultater:
-        rad = a["rad"]
-        pr = a["poisson_res"]
-        avvik = a["avvik_poi"]
-        max_av = a["max_poi_avvik"]
+    def _sammendrag_html(analyser):
+        """Bygger modernisert sammendrag som HTML-tabell med probability-bars."""
+        rows = ""
+        for a in analyser:
+            rad = a["rad"]
+            pr = a["poisson_res"]
+            avvik = a["avvik_poi"]
+            max_av = a["max_poi_avvik"]
 
-        # Finn verdisignal
-        verdisignal = "⚪"
-        if max_av >= 8:
-            beste = max(avvik, key=lambda x: abs(x) if x else 0, default=None)
-            verdisignal = pil(beste)
+            # Kampnavn + liga
+            kamp_cell = (
+                f'<td><strong>{rad["Kamp"]}</strong>'
+                f'<br><span style="font-size:11px;color:rgba(128,128,128,0.7)">{rad["Liga"]}</span></td>'
+            )
 
-        sammendrag_rader.append({
-            "Kamp": rad["Kamp"],
-            "Folk H/U/B": f"{a['folk_h']}/{a['folk_u']}/{a['folk_b']}",
-            "Modell H/U/B": f"{pr['H']}/{pr['U']}/{pr['B']}" if pr else "–",
-            "Forv. mål": f"{pr['lambda_h']}-{pr['lambda_b']}" if pr else "–",
-            "Modellnivå": a["modell_nivaa"],
-            "Verdisignal": verdisignal,
-        })
+            # Folk prob-bar
+            fh, fu, fb = a["folk_h"], a["folk_u"], a["folk_b"]
+            folk_bar = (
+                f'<td style="min-width:140px">'
+                f'<div class="prob-bar">'
+                f'<div class="prob-seg-h" style="width:{fh}%">{fh}</div>'
+                f'<div class="prob-seg-u" style="width:{fu}%">{fu}</div>'
+                f'<div class="prob-seg-b" style="width:{fb}%">{fb}</div>'
+                f'</div></td>'
+            )
 
-    if sammendrag_rader:
-        st.dataframe(
-            pd.DataFrame(sammendrag_rader),
-            use_container_width=True,
-            hide_index=True,
+            # Modell prob-bar
+            if pr:
+                mh, mu, mb = pr["H"], pr["U"], pr["B"]
+                modell_bar = (
+                    f'<td style="min-width:140px">'
+                    f'<div class="prob-bar model-bar">'
+                    f'<div class="prob-seg-h" style="width:{mh}%">{mh}</div>'
+                    f'<div class="prob-seg-u" style="width:{mu}%">{mu}</div>'
+                    f'<div class="prob-seg-b" style="width:{mb}%">{mb}</div>'
+                    f'</div></td>'
+                )
+            else:
+                modell_bar = '<td style="text-align:center;color:rgba(128,128,128,0.4)">–</td>'
+
+            # Forventede mål
+            if pr:
+                maal_cell = (
+                    f'<td style="text-align:center">'
+                    f'<span class="score-badge">'
+                    f'<span class="goals">{pr["lambda_h"]}</span>'
+                    f'<span class="dash">–</span>'
+                    f'<span class="goals">{pr["lambda_b"]}</span>'
+                    f'</span></td>'
+                )
+            else:
+                maal_cell = '<td style="text-align:center;color:rgba(128,128,128,0.4)">–</td>'
+
+            # Modellnivå
+            nivaa = a["modell_nivaa"]
+            nivaa_farger = {
+                "Dyp (form+xG)": "#22c55e", "Dyp (form)": "#3b82f6",
+                "Basis (sesongsnitt)": "#eab308", "Ingen modell": "#9ca3af",
+            }
+            nbg = nivaa_farger.get(nivaa, "#9ca3af")
+            nivaa_cell = (
+                f'<td style="text-align:center">'
+                f'<span class="modell-badge" style="background:{nbg};color:#fff">{nivaa}</span></td>'
+            )
+
+            # Verdisignal
+            if max_av >= 8:
+                beste = max(avvik, key=lambda x: abs(x) if x else 0, default=None)
+                if beste is not None and beste > 8:
+                    dot_cls = "green"
+                    tip = f"Modellen ser {beste:.1f}pp mer enn folk"
+                elif beste is not None and beste < -8:
+                    dot_cls = "red"
+                    tip = f"Folk overtipper med {abs(beste):.1f}pp"
+                else:
+                    dot_cls = "grey"
+                    tip = "Ingen tydelig signal"
+            else:
+                dot_cls = "grey"
+                tip = "Ingen tydelig signal"
+            signal_cell = (
+                f'<td style="text-align:center">'
+                f'<span class="signal-dot {dot_cls}" title="{tip}"></span></td>'
+            )
+
+            rows += f"<tr>{kamp_cell}{folk_bar}{modell_bar}{maal_cell}{nivaa_cell}{signal_cell}</tr>\n"
+
+        return f"""
+        <table class="sammendrag-table">
+        <thead><tr>
+            <th>Kamp</th>
+            <th class="center">Folk H / U / B</th>
+            <th class="center">Modell H / U / B</th>
+            <th class="center">Forv. mål</th>
+            <th class="center">Modellnivå</th>
+            <th class="center">Signal</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+        </table>
+        """
+
+    # Splitt: neste kupong (12 kamper) vises direkte, resten i ekspanderbare seksjoner
+    _nk_ids = set(id(a) for a in neste_kupong_analyser)
+    _øvrige = [a for a in analyse_resultater if id(a) not in _nk_ids]
+
+    if neste_kupong_analyser:
+        st.markdown(
+            f"**{neste_kupong_dag}kupong** — {neste_kupong_dato} — "
+            f"{len(neste_kupong_analyser)} kamper"
         )
+        st.markdown(_sammendrag_html(neste_kupong_analyser), unsafe_allow_html=True)
+
+    if _øvrige:
+        # Grupper øvrige kamper per dag
+        _øvrige_per_dag = {}
+        for a in _øvrige:
+            dag = a["rad"]["Dag"]
+            _øvrige_per_dag.setdefault(dag, []).append(a)
+
+        for dag, kamper in _øvrige_per_dag.items():
+            datoer = [a["rad"]["Dato"] for a in kamper if a["rad"]["Dato"]]
+            dato_str = min(datoer) if datoer else ""
+            with st.expander(f"{dag}kupong — {dato_str} — {len(kamper)} kamper"):
+                st.markdown(_sammendrag_html(kamper), unsafe_allow_html=True)
 
     st.divider()
 
@@ -1188,12 +1422,7 @@ with tab_analyse:
 # ═══════════════════════════════════════════════
 
 def _kupong_html(forslag, analyse_resultater, profil_navn, faktisk_rader):
-    """Bygger HTML-kupong som ligner Norsk Tipping-kupongen."""
-    # Farger for markerte tegn
-    BG_MARK = "#1a6b3c"  # Grønn bakgrunn for valgte tegn
-    BG_VERDI = "#b8860b"  # Gull for verdi-tegn
-    TEXT_MARK = "white"
-
+    """Bygger modernisert HTML-kupong med badges og fargede rader."""
     rows_html = ""
     for i, (f, a) in enumerate(zip(forslag, analyse_resultater)):
         if not f:
@@ -1201,59 +1430,50 @@ def _kupong_html(forslag, analyse_resultater, profil_navn, faktisk_rader):
         rad = a["rad"]
         tegn = f["tegn"]
         avvik = f.get("avvik", {})
+        row_cls = f"kupong-row-{f['type']}"
 
-        # H/U/B celler — marker valgte tegn
+        # H/U/B celler med badge-stil
         celler = ""
         for utfall in ["H", "U", "B"]:
             if utfall in tegn:
-                # Er dette et verdi-tegn? (positivt avvik > 5pp)
                 er_verdi = avvik.get(utfall, 0) > 5
-                bg = BG_VERDI if er_verdi else BG_MARK
+                badge_cls = "aktiv-verdi" if er_verdi else "aktiv-modell"
                 celler += (
-                    f'<td style="background:{bg};color:{TEXT_MARK};'
-                    f'text-align:center;font-weight:bold;font-size:16px;'
-                    f'padding:6px 12px;border:1px solid #ddd">{utfall}</td>'
+                    f'<td style="text-align:center">'
+                    f'<span class="tegn-badge aktiv {badge_cls}">{utfall}</span></td>'
                 )
             else:
                 celler += (
-                    '<td style="text-align:center;color:#ccc;padding:6px 12px;'
-                    'border:1px solid #eee;font-size:14px">·</td>'
+                    f'<td style="text-align:center">'
+                    f'<span class="tegn-badge inaktiv">·</span></td>'
                 )
 
-        # Type badge
-        type_colors = {"singel": "#6b7280", "dobbel": "#2563eb", "trippel": "#dc2626"}
-        tc = type_colors.get(f["type"], "#6b7280")
-        type_badge = (
-            f'<span style="background:{tc};color:white;padding:1px 8px;'
-            f'border-radius:8px;font-size:11px">{f["type"].capitalize()}</span>'
-        )
+        # Type chip
+        type_chip = f'<span class="type-chip {f["type"]}">{f["type"][0].upper()}</span>'
+
+        # Begrunnelse chip
+        begr = f'<span class="begrunnelse-chip" title="{f["begrunnelse"]}">{f["begrunnelse"]}</span>'
 
         rows_html += (
-            f'<tr>'
-            f'<td style="padding:6px 8px;border:1px solid #eee;font-size:13px">'
-            f'{i+1}. {rad["Kamp"]}</td>'
+            f'<tr class="{row_cls}">'
+            f'<td style="font-size:13px"><strong>{i+1}.</strong> {rad["Kamp"]}</td>'
             f'{celler}'
-            f'<td style="padding:6px 8px;border:1px solid #eee;text-align:center">{type_badge}</td>'
-            f'<td style="padding:6px 8px;border:1px solid #eee;font-size:12px;color:#666">'
-            f'{f["begrunnelse"]}</td>'
+            f'<td style="text-align:center">{type_chip}</td>'
+            f'<td>{begr}</td>'
             f'</tr>'
         )
 
     return f"""
-    <table style="width:100%;border-collapse:collapse;margin:8px 0">
-    <thead>
-    <tr style="background:#f3f4f6">
-        <th style="text-align:left;padding:8px;border:1px solid #ddd;min-width:200px">Kamp</th>
-        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:45px">H</th>
-        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:45px">U</th>
-        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:45px">B</th>
-        <th style="text-align:center;padding:8px;border:1px solid #ddd;width:80px">Type</th>
-        <th style="text-align:left;padding:8px;border:1px solid #ddd">Begrunnelse</th>
-    </tr>
-    </thead>
-    <tbody>
-    {rows_html}
-    </tbody>
+    <table class="kupong-table">
+    <thead><tr>
+        <th style="text-align:left;min-width:200px">Kamp</th>
+        <th style="width:45px">H</th>
+        <th style="width:45px">U</th>
+        <th style="width:45px">B</th>
+        <th style="width:60px">Type</th>
+        <th style="text-align:left">Begrunnelse</th>
+    </tr></thead>
+    <tbody>{rows_html}</tbody>
     </table>
     """
 
@@ -1299,12 +1519,32 @@ with tab_spillforslag:
 
             st.markdown(f"### {profil['navn']} spill — {faktisk_rader} rekker ({faktisk_rader} kr)")
 
-            # Nøkkeltall
-            kc1, kc2, kc3, kc4 = st.columns(4)
-            kc1.metric("Rekker", faktisk_rader)
-            kc2.metric("Singler", antall_singler)
-            kc3.metric("Dobler", antall_dobler)
-            kc4.metric("Tripler", antall_tripler)
+            # Nøkkeltall som styled HTML-kort
+            kpi_html = f"""
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-icon">#</div>
+                    <div class="kpi-value">{faktisk_rader}</div>
+                    <div class="kpi-label">Rekker</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">1</div>
+                    <div class="kpi-value">{antall_singler}</div>
+                    <div class="kpi-label">Singler</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">2</div>
+                    <div class="kpi-value">{antall_dobler}</div>
+                    <div class="kpi-label">Dobler</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">3</div>
+                    <div class="kpi-value">{antall_tripler}</div>
+                    <div class="kpi-label">Tripler</div>
+                </div>
+            </div>
+            """
+            st.markdown(kpi_html, unsafe_allow_html=True)
 
             # Kupong-tabell i HTML
             html = _kupong_html(forslag, kupong_analyser, profil["navn"], faktisk_rader)
