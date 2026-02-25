@@ -786,6 +786,16 @@ def oppdater_resultater():
 st.title("⚽ Modelltipset")
 st.caption("Folkerekke · Dyp Poisson-analyse · Form · H2H · Verdianalyse · Historikk")
 
+st.markdown(
+    "Modellen estimerer sannsynligheten for hjemmeseier, uavgjort og borteseier "
+    "ved å kombinere flere faktorer: "
+    "**lagstyrke** (historiske prestasjoner), "
+    "**kampform** (nylige resultater), "
+    "**forventet målproduksjon** og "
+    "**hjemmebanefordel**. "
+    "Resultatet sammenlignes med folkerekka for å identifisere verdispill."
+)
+
 # Last NT-data
 with st.spinner("Henter tippekupong fra Norsk Tipping..."):
     nt_json, nt_feil = hent_nt_data()
@@ -1406,6 +1416,72 @@ with tab_analyse:
                     st.success(f"🟢 **Mulig verdi:** Modellen ser {beste_poi[1]:.1f}pp MER sannsynlighet for **{beste_poi[0]}** enn folkerekka")
                 elif beste_poi[1] is not None and beste_poi[1] < -8:
                     st.warning(f"🔴 **Obs:** Folk overtipper **{beste_poi[0]}** med {abs(beste_poi[1]):.1f}pp vs. modellen")
+
+                # ════ KORT FORKLARING ════
+                if poisson_res:
+                    forklaring_deler = []
+
+                    # Hvem modellen favoriserer
+                    poi_h_v = a["poi_h"]
+                    poi_u_v = a["poi_u"]
+                    poi_b_v = a["poi_b"]
+                    fav_map = {"H": hjemmelag, "U": "uavgjort", "B": bortelag}
+                    modell_fav = max({"H": poi_h_v, "U": poi_u_v, "B": poi_b_v}, key={"H": poi_h_v, "U": poi_u_v, "B": poi_b_v}.get)
+
+                    fav_pct = {"H": poi_h_v, "U": poi_u_v, "B": poi_b_v}[modell_fav]
+                    if modell_fav == "U":
+                        forklaring_deler.append(f"Modellen vurderer lagene som jevne og heller mot uavgjort ({poi_u_v:.0f}%)")
+                    else:
+                        forklaring_deler.append(f"Modellen favoriserer **{fav_map[modell_fav]}** ({fav_pct:.0f}%)")
+
+                    # Styrkeforskjell
+                    s = poisson_res.get("styrke")
+                    if s:
+                        h_total = s["home_attack"] + s["home_defense"]
+                        b_total = s["away_attack"] + s["away_defense"]
+                        if abs(h_total - b_total) > 0.3:
+                            sterkere = hjemmelag if h_total > b_total else bortelag
+                            forklaring_deler.append(f"{sterkere} har sterkere rating basert på sesongstatistikk")
+                        else:
+                            forklaring_deler.append("lagene har tilnærmet lik styrkerating")
+
+                    # Form
+                    hf = a.get("h_form")
+                    bf = a.get("b_form")
+                    if hf and bf and hf.get("scoret_snitt") is not None and bf.get("scoret_snitt") is not None:
+                        h_form_score = hf["scoret_snitt"] - hf["innsluppet_snitt"]
+                        b_form_score = bf["scoret_snitt"] - bf["innsluppet_snitt"]
+                        if h_form_score > b_form_score + 0.5:
+                            forklaring_deler.append(f"{hjemmelag} er i bedre form på hjemmebane")
+                        elif b_form_score > h_form_score + 0.5:
+                            forklaring_deler.append(f"{bortelag} er i bedre form på bortebane")
+
+                    # Forventet mål
+                    lh = poisson_res.get("lambda_h")
+                    lb = poisson_res.get("lambda_b")
+                    if lh is not None and lb is not None:
+                        if lh > lb + 0.4:
+                            forklaring_deler.append(f"{hjemmelag} forventes å score flere mål ({lh:.1f} vs {lb:.1f})")
+                        elif lb > lh + 0.4:
+                            forklaring_deler.append(f"{bortelag} forventes å score flere mål ({lb:.1f} vs {lh:.1f})")
+                        else:
+                            forklaring_deler.append(f"jevn forventet målproduksjon ({lh:.1f} – {lb:.1f})")
+
+                    # Avvik mot folk
+                    avvik_h = avvik_poi[0] if avvik_poi[0] is not None else 0
+                    avvik_u = avvik_poi[1] if avvik_poi[1] is not None else 0
+                    avvik_b = avvik_poi[2] if avvik_poi[2] is not None else 0
+                    max_a = max(avvik_h, avvik_u, avvik_b)
+                    min_a = min(avvik_h, avvik_u, avvik_b)
+                    if max_a > 8:
+                        avvik_utfall = ["hjemmeseier", "uavgjort", "borteseier"][[avvik_h, avvik_u, avvik_b].index(max_a)]
+                        forklaring_deler.append(f"folkerekka undervurderer {avvik_utfall} ifølge modellen")
+                    elif min_a < -8:
+                        avvik_utfall = ["hjemmeseier", "uavgjort", "borteseier"][[avvik_h, avvik_u, avvik_b].index(min_a)]
+                        forklaring_deler.append(f"folkerekka overvurderer {avvik_utfall} ifølge modellen")
+
+                    if forklaring_deler:
+                        st.info("💡 **Kort oppsummert:** " + ". ".join(forklaring_deler) + ".")
 
     st.divider()
 
