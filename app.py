@@ -24,7 +24,7 @@ from fotmob_api import (
     beregn_styrke, beregn_form_styrke, beregn_dyp_poisson,
 )
 
-st.set_page_config(page_title="TippingAnalyse", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Modelltipset", page_icon="⚽", layout="wide")
 
 # ─────────────────────────────────────────────
 # GLOBAL CSS
@@ -783,7 +783,7 @@ def oppdater_resultater():
 # APP START
 # ─────────────────────────────────────────────
 
-st.title("⚽ TippingAnalyse")
+st.title("⚽ Modelltipset")
 st.caption("Folkerekke · Dyp Poisson-analyse · Form · H2H · Verdianalyse · Historikk")
 
 # Last NT-data
